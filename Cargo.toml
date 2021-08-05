@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wasm-bindgen = "0.2.63"
+rxrust = { path = "rxrust" }
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false
