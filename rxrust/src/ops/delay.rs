@@ -28,22 +28,6 @@ macro_rules! impl_observable {
     subscription
   }};
 }
-impl<S, SD> SharedObservable for DelayOp<S, SD>
-where
-  S: SharedObservable + Send + Sync + 'static,
-  S::Unsub: Send + Sync,
-  SD: SharedScheduler,
-{
-  type Unsub = SharedSubscription;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> Self::Unsub {
-    impl_observable!(self, subscriber)
-  }
-}
 
 impl<S, SD, Unsub> LocalObservable<'static> for DelayOp<S, SD>
 where

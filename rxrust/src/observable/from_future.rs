@@ -48,26 +48,6 @@ where
   type Err = ();
 }
 
-impl<Item, F, S> SharedEmitter for FutureEmitter<F, S>
-where
-  F: Future<Output = Item> + Send + Sync + 'static,
-  S: SharedScheduler,
-{
-  fn emit<O>(self, subscriber: Subscriber<O, SharedSubscription>)
-  where
-    O: Observer<Item = Self::Item, Err = Self::Err> + Send + Sync + 'static,
-  {
-    let subscription = subscriber.subscription.clone();
-
-    let f = self
-      .future
-      .map(move |v| SharedEmitter::emit(of::OfEmitter(v), subscriber));
-    let (future, handle) = futures::future::abortable(f);
-    self.scheduler.spawn(future.map(|_| ()));
-    subscription.add(SpawnHandle::new(handle))
-  }
-}
-
 impl<Item, F, S> LocalEmitter<'static> for FutureEmitter<F, S>
 where
   F: Future<Output = Item> + 'static,
@@ -121,29 +101,6 @@ where
 {
   type Item = Item;
   type Err = Err;
-}
-
-impl<Item, Err, S, F> SharedEmitter for FutureResultEmitter<F, S, Item, Err>
-where
-  Item: Send + Sync + 'static,
-  Err: Send + Sync + 'static,
-  F: Future + Send + Clone + Sync + 'static,
-  <F as Future>::Output: Into<Result<Item, Err>>,
-  S: SharedScheduler,
-{
-  fn emit<O>(self, subscriber: Subscriber<O, SharedSubscription>)
-  where
-    O: Observer<Item = Self::Item, Err = Self::Err> + Send + Sync + 'static,
-  {
-    let subscription = subscriber.subscription.clone();
-
-    let f = self.future.map(move |v| {
-      SharedEmitter::emit(of::ResultEmitter(v.into()), subscriber)
-    });
-    let (future, handle) = futures::future::abortable(f);
-    self.scheduler.spawn(future.map(|_| ()));
-    subscription.add(SpawnHandle::new(handle))
-  }
 }
 
 impl<Item, Err, S, F> LocalEmitter<'static>

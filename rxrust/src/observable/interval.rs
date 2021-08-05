@@ -41,21 +41,6 @@ impl<S> Emitter for IntervalEmitter<S> {
   type Err = ();
 }
 
-impl<S: SharedScheduler + 'static> SharedEmitter for IntervalEmitter<S> {
-  fn emit<O>(self, subscriber: Subscriber<O, SharedSubscription>)
-  where
-    O: Observer<Item = Self::Item, Err = Self::Err> + Send + Sync + 'static,
-  {
-    let mut observer = subscriber.observer;
-    let handle = self.scheduler.schedule_repeating(
-      move |i| observer.next(i),
-      self.dur,
-      self.at,
-    );
-    subscriber.subscription.add(handle);
-  }
-}
-
 impl<S: LocalScheduler + 'static> LocalEmitter<'static> for IntervalEmitter<S> {
   fn emit<O>(self, subscriber: Subscriber<O, LocalSubscription>)
   where

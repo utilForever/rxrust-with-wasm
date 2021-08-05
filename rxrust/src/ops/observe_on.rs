@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::scheduler::SharedScheduler;
 use std::{
   cell::RefCell,
   rc::Rc,
@@ -45,46 +44,10 @@ where
   }
 }
 
-impl<S, SD> SharedObservable for ObserveOnOp<S, SD>
-where
-  S: SharedObservable,
-  S::Item: Clone + Send + 'static,
-  S::Err: Clone + Send + 'static,
-  SD: SharedScheduler + Send + Sync + 'static,
-{
-  type Unsub = S::Unsub;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> Self::Unsub {
-    let Subscriber {
-      observer,
-      subscription,
-    } = subscriber;
-    let subscriber = SharedObserver {
-      observer: Arc::new(Mutex::new(observer)),
-      subscription: subscription.clone(),
-      scheduler: self.scheduler,
-    };
-    self.source.actual_subscribe(Subscriber {
-      observer: subscriber,
-      subscription,
-    })
-  }
-}
-
 struct LocalObserver<O, SD: LocalScheduler> {
   observer: Rc<RefCell<O>>,
   scheduler: SD,
   subscription: LocalSubscription,
-}
-
-struct SharedObserver<O, SD: SharedScheduler> {
-  observer: Arc<Mutex<O>>,
-  subscription: SharedSubscription,
-  scheduler: SD,
 }
 
 #[doc(hidden)]
@@ -100,41 +63,6 @@ macro_rules! impl_observer {
       self.observer_schedule(|mut observer, _| observer.complete(), ())
     }
   };
-}
-
-impl<O, SD> SharedObserver<O, SD>
-where
-  SD: SharedScheduler,
-{
-  fn observer_schedule<S, Task>(&mut self, task: Task, state: S)
-  where
-    S: Send + 'static,
-    O: Send + 'static,
-    Task: FnOnce(Arc<Mutex<O>>, S) + Send + 'static,
-  {
-    let subscription = self.scheduler.schedule(
-      |(observer, state)| task(observer, state),
-      None,
-      (self.observer.clone(), state),
-    );
-
-    self.subscription.add(subscription);
-  }
-}
-
-impl<Item, Err, O, SD> Observer for SharedObserver<O, SD>
-where
-  Item: Clone + Send + 'static,
-  Err: Clone + Send + 'static,
-  O: Observer<Item = Item, Err = Err> + Send + 'static,
-  SD: SharedScheduler,
-{
-  type Item = Item;
-  type Err = Err;
-  impl_observer!(Item, Err);
-
-  #[inline]
-  fn is_stopped(&self) -> bool { self.observer.lock().unwrap().is_stopped() }
 }
 
 impl<O: 'static, SD: LocalScheduler + 'static> LocalObserver<O, SD> {

@@ -50,42 +50,6 @@ where
     })
   }
 }
-impl<S, SD> SharedObservable for DebounceOp<S, SD>
-where
-  S: SharedObservable,
-  S::Item: Clone + Send + 'static,
-  SD: SharedScheduler + Send + 'static,
-{
-  type Unsub = S::Unsub;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> S::Unsub {
-    let Self {
-      source,
-      duration,
-      scheduler,
-    } = self;
-    let Subscriber {
-      observer,
-      subscription,
-    } = subscriber;
-    source.actual_subscribe(Subscriber {
-      observer: SharedDebounceObserver(Arc::new(Mutex::new(
-        DebounceObserver {
-          observer,
-          scheduler,
-          trailing_value: None,
-          delay: duration,
-          last_updated: None,
-        },
-      ))),
-      subscription,
-    })
-  }
-}
 
 struct DebounceObserver<O, S, Item> {
   observer: O,
@@ -103,51 +67,6 @@ struct LocalDebounceObserver<O, S, Item>(
   Rc<RefCell<DebounceObserver<O, S, Item>>>,
 );
 
-impl<O, S> Observer for SharedDebounceObserver<O, S, O::Item>
-where
-  O: Observer + Send + 'static,
-  S: SharedScheduler + Send + 'static,
-  O::Item: Clone + Send + 'static,
-{
-  type Item = O::Item;
-  type Err = O::Err;
-  fn next(&mut self, value: Self::Item) {
-    let c_inner = self.0.clone();
-    let mut inner = self.0.lock().unwrap();
-    let updated = Some(Instant::now());
-    inner.last_updated = updated.clone();
-    inner.trailing_value = Some(value.clone());
-    let delay = inner.delay;
-    inner.scheduler.schedule(
-      move |last| {
-        let mut inner = c_inner.lock().unwrap();
-        if let Some(value) = inner.trailing_value.clone() {
-          if inner.last_updated == last {
-            inner.observer.next(value);
-            inner.trailing_value = None;
-          }
-        }
-      },
-      Some(delay),
-      inner.last_updated.clone(),
-    );
-  }
-  fn error(&mut self, err: Self::Err) {
-    let mut inner = self.0.lock().unwrap();
-    inner.observer.error(err)
-  }
-  fn complete(&mut self) {
-    let mut inner = self.0.lock().unwrap();
-    if let Some(value) = inner.trailing_value.take() {
-      inner.observer.next(value);
-    }
-    inner.observer.complete();
-  }
-  fn is_stopped(&self) -> bool {
-    let inner = self.0.lock().unwrap();
-    inner.observer.is_stopped()
-  }
-}
 
 impl<O, S> Observer for LocalDebounceObserver<O, S, O::Item>
 where
