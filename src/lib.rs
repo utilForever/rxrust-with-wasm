@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+use rxrust::prelude::*;
 
 #[wasm_bindgen]
 extern "C" {
@@ -7,5 +8,7 @@ extern "C" {
 
 #[wasm_bindgen]
 pub fn greet() {
-    alert("Hello, rust-wasm!");
+    let o = observable::from_iter(0..10);
+    o.clone().subscribe(|_| {alert("Hello")});
+    o.clone().subscribe(|_| {alert("rust-wasm!")});
 }
