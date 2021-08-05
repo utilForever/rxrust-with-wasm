@@ -294,3 +294,30 @@ mod test {
     })
   }
 }
+
+#[cfg(feature = "wasm-scheduler")]
+mod wasm_scheduler {
+  use crate::scheduler::{LocalScheduler, SharedScheduler};
+  use futures::{
+    executor::{LocalSpawner, ThreadPool},
+    Future, FutureExt,
+  };
+
+  impl SharedScheduler for ThreadPool {
+    fn spawn<Fut>(&self, future: Fut)
+    where
+      Fut: Future<Output = ()> + Send + 'static,
+    {
+      wasm_bindgen_futures::spawn_local(future);
+    }
+  }
+
+  impl LocalScheduler for LocalSpawner {
+    fn spawn<Fut>(&self, future: Fut)
+    where
+      Fut: Future<Output = ()> + 'static,
+    {
+      wasm_bindgen_futures::spawn_local(future.map(|_| ()));
+    }
+  }
+}
