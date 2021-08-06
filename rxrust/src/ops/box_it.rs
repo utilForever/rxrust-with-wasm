@@ -62,7 +62,9 @@ pub struct BoxOp<T>(T);
 
 impl<T: Clone> Clone for BoxOp<T> {
   #[inline]
-  fn clone(&self) -> Self { BoxOp(self.0.clone()) }
+  fn clone(&self) -> Self {
+    BoxOp(self.0.clone())
+  }
 }
 
 pub type LocalBoxOp<'a, Item, Err> =
@@ -141,7 +143,9 @@ impl<'a, T> IntoBox<T>
 where
   T: LocalObservable<'a> + 'a,
 {
-  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
+  fn box_it(origin: T) -> BoxOp<Self> {
+    BoxOp(Box::new(origin))
+  }
 }
 
 impl<T> IntoBox<T>
@@ -152,7 +156,9 @@ where
   T::Err: Send + Sync + 'static,
   T::Unsub: Send + Sync,
 {
-  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
+  fn box_it(origin: T) -> BoxOp<Self> {
+    BoxOp(Box::new(origin))
+  }
 }
 
 // support box observable clone
@@ -177,7 +183,9 @@ impl<'a, Item, Err> Clone
   for Box<dyn BoxClone<'a, Item = Item, Err = Err> + 'a>
 {
   #[inline]
-  fn clone(&self) -> Self { self.box_clone() }
+  fn clone(&self) -> Self {
+    self.box_clone()
+  }
 }
 
 impl<'a, T> IntoBox<T>
@@ -185,7 +193,9 @@ impl<'a, T> IntoBox<T>
 where
   T: LocalObservable<'a> + Clone + 'a,
 {
-  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
+  fn box_it(origin: T) -> BoxOp<Self> {
+    BoxOp(Box::new(origin))
+  }
 }
 
 pub trait SharedBoxClone: SharedBoxObservable {
@@ -207,14 +217,18 @@ where
 
 impl<Item, Err> Clone for Box<dyn SharedBoxClone<Item = Item, Err = Err>> {
   #[inline]
-  fn clone(&self) -> Self { self.box_clone() }
+  fn clone(&self) -> Self {
+    self.box_clone()
+  }
 }
 
 impl<'a, T> IntoBox<T> for Box<dyn SharedBoxClone<Item = T::Item, Err = T::Err>>
 where
   T: SharedBoxObservable + Clone + 'static,
 {
-  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
+  fn box_it(origin: T) -> BoxOp<Self> {
+    BoxOp(Box::new(origin))
+  }
 }
 
 #[cfg(test)]
@@ -262,9 +276,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_box_clone);
 
-  fn bench_box_clone(b: &mut Bencher) { b.iter(box_clone); }
+  fn bench_box_clone(b: &mut Bencher) {
+    b.iter(box_clone);
+  }
 }

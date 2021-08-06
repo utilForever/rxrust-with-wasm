@@ -108,9 +108,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_contains);
 
-  fn bench_contains(b: &mut bencher::Bencher) { b.iter(contains_smoke); }
+  fn bench_contains(b: &mut bencher::Bencher) {
+    b.iter(contains_smoke);
+  }
 }

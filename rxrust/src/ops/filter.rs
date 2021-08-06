@@ -74,7 +74,9 @@ where
   complete_proxy_impl!(observer);
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.is_stopped()
+  }
 }
 
 #[cfg(test)]
@@ -102,9 +104,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_filter);
 
-  fn bench_filter(b: &mut bencher::Bencher) { b.iter(smoke); }
+  fn bench_filter(b: &mut bencher::Bencher) {
+    b.iter(smoke);
+  }
 }

@@ -114,7 +114,9 @@ where
 {
   type Item = Item;
   type Err = Err;
-  fn next(&mut self, value: Item) { self.value = Some(value); }
+  fn next(&mut self, value: Item) {
+    self.value = Some(value);
+  }
 
   error_proxy_impl!(Err, observer);
 
@@ -161,7 +163,9 @@ where
   type Item = Item2;
   type Err = Err;
 
-  fn next(&mut self, _: Item2) { self.0.drain_value(); }
+  fn next(&mut self, _: Item2) {
+    self.0.drain_value();
+  }
 
   error_proxy_impl!(Err, 0);
 

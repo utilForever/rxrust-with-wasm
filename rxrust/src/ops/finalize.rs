@@ -100,7 +100,9 @@ where
   }
 
   #[inline]
-  fn is_closed(&self) -> bool { self.is_closed }
+  fn is_closed(&self) -> bool {
+    self.is_closed
+  }
 }
 
 impl<Target> SubscriptionLike
@@ -116,7 +118,9 @@ where
   }
 
   #[inline]
-  fn is_closed(&self) -> bool { self.is_closed }
+  fn is_closed(&self) -> bool {
+    self.is_closed
+  }
 }
 
 impl<Target> SubscriptionLike for FinalizerSubscription<Box<Option<Target>>>
@@ -131,7 +135,9 @@ where
   }
 
   #[inline]
-  fn is_closed(&self) -> bool { self.is_closed }
+  fn is_closed(&self) -> bool {
+    self.is_closed
+  }
 }
 
 impl<Item, Err, O, Target> Observer
@@ -143,7 +149,9 @@ where
   type Item = Item;
   type Err = Err;
   #[inline]
-  fn next(&mut self, value: Item) { self.observer.next(value); }
+  fn next(&mut self, value: Item) {
+    self.observer.next(value);
+  }
 
   fn error(&mut self, err: Err) {
     self.observer.error(err);
@@ -160,7 +168,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.is_stopped()
+  }
 }
 
 impl<Item, Err, O, Target> Observer
@@ -172,7 +182,9 @@ where
   type Item = Item;
   type Err = Err;
   #[inline]
-  fn next(&mut self, value: Item) { self.observer.next(value); }
+  fn next(&mut self, value: Item) {
+    self.observer.next(value);
+  }
 
   fn error(&mut self, err: Err) {
     self.observer.error(err);
@@ -189,7 +201,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.is_stopped()
+  }
 }
 
 impl<Item, Err, O, Target> Observer
@@ -201,7 +215,9 @@ where
   type Item = Item;
   type Err = Err;
   #[inline]
-  fn next(&mut self, value: Item) { self.observer.next(value); }
+  fn next(&mut self, value: Item) {
+    self.observer.next(value);
+  }
 
   fn error(&mut self, err: Err) {
     self.observer.error(err);
@@ -218,7 +234,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.is_stopped()
+  }
 }
 
 #[cfg(test)]
@@ -354,7 +372,9 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_finalize);
 

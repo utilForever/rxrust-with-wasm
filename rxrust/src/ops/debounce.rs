@@ -62,7 +62,6 @@ struct LocalDebounceObserver<O, S, Item>(
   Rc<RefCell<DebounceObserver<O, S, Item>>>,
 );
 
-
 impl<O, S> Observer for LocalDebounceObserver<O, S, O::Item>
 where
   O: Observer + 'static,

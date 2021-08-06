@@ -34,7 +34,9 @@ where
   type Item = Item;
   type Err = Err;
   #[inline(always)]
-  fn next(&mut self, value: Self::Item) { (self.next)(value); }
+  fn next(&mut self, value: Self::Item) {
+    (self.next)(value);
+  }
 
   fn error(&mut self, err: Self::Err) {
     (self.error)(err);
@@ -47,7 +49,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { *self.is_stopped.lock().unwrap() }
+  fn is_stopped(&self) -> bool {
+    *self.is_stopped.lock().unwrap()
+  }
 }
 
 pub trait SubscribeBlockingAll<'a, N, E, C> {

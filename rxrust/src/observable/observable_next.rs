@@ -14,12 +14,20 @@ where
   type Item = Item;
   type Err = ();
   #[inline]
-  fn next(&mut self, value: Self::Item) { (self.next)(value); }
+  fn next(&mut self, value: Self::Item) {
+    (self.next)(value);
+  }
   #[inline]
-  fn error(&mut self, _err: ()) { self.is_stopped = true; }
+  fn error(&mut self, _err: ()) {
+    self.is_stopped = true;
+  }
   #[inline]
-  fn complete(&mut self) { self.is_stopped = true; }
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn complete(&mut self) {
+    self.is_stopped = true;
+  }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 
 pub trait SubscribeNext<'a, N> {

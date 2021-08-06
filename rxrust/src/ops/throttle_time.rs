@@ -1,9 +1,5 @@
 use crate::prelude::*;
-use std::{
-  cell::RefCell,
-  rc::Rc,
-  time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 /// Config to define leading and trailing behavior for throttle
 #[derive(PartialEq, Clone, Copy)]

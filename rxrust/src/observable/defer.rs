@@ -133,7 +133,9 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_deref);
 

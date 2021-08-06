@@ -16,14 +16,20 @@ where
   type Item = Item;
   type Err = ();
   #[inline]
-  fn next(&mut self, value: Item) { (self.next)(value); }
+  fn next(&mut self, value: Item) {
+    (self.next)(value);
+  }
   #[inline]
-  fn error(&mut self, _err: ()) { self.is_stopped = true; }
+  fn error(&mut self, _err: ()) {
+    self.is_stopped = true;
+  }
   fn complete(&mut self) {
     (self.complete)();
     self.is_stopped = true;
   }
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 
 pub trait SubscribeComplete<'a, N, C> {

@@ -17,25 +17,37 @@ pub struct Subject<V, S> {
 
 impl<O, U: SubscriptionLike> SubscriptionLike for Subject<O, U> {
   #[inline]
-  fn unsubscribe(&mut self) { self.subscription.unsubscribe(); }
+  fn unsubscribe(&mut self) {
+    self.subscription.unsubscribe();
+  }
 
   #[inline]
-  fn is_closed(&self) -> bool { self.subscription.is_closed() }
+  fn is_closed(&self) -> bool {
+    self.subscription.is_closed()
+  }
 }
 
 macro_rules! impl_observer {
   () => {
     #[inline]
-    fn next(&mut self, value: Item) { self.observers.next(value) }
+    fn next(&mut self, value: Item) {
+      self.observers.next(value)
+    }
 
     #[inline]
-    fn error(&mut self, err: Err) { self.observers.error(err) }
+    fn error(&mut self, err: Err) {
+      self.observers.error(err)
+    }
 
     #[inline]
-    fn complete(&mut self) { self.observers.complete() }
+    fn complete(&mut self) {
+      self.observers.complete()
+    }
 
     #[inline]
-    fn is_stopped(&self) -> bool { self.observers.is_stopped() }
+    fn is_stopped(&self) -> bool {
+      self.observers.is_stopped()
+    }
   };
 }
 
@@ -124,7 +136,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 
 impl<Item, Err, O> Observer for SubjectObserver<Rc<RefCell<Vec<O>>>>
@@ -171,7 +185,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 
 impl<Item, Err, O> Observer for SubjectObserver<Box<Vec<O>>>
@@ -218,7 +234,9 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 impl<O, S> Debug for Subject<Arc<Mutex<Vec<O>>>, S> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

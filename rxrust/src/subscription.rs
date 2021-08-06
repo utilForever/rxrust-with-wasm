@@ -46,7 +46,9 @@ impl LocalSubscription {
 }
 
 impl TearDownSize for LocalSubscription {
-  fn teardown_size(&self) -> usize { self.0.borrow().teardown.len() }
+  fn teardown_size(&self) -> usize {
+    self.0.borrow().teardown.len()
+  }
 }
 
 pub trait TearDownSize: SubscriptionLike {
@@ -55,9 +57,13 @@ pub trait TearDownSize: SubscriptionLike {
 
 impl SubscriptionLike for LocalSubscription {
   #[inline]
-  fn unsubscribe(&mut self) { self.0.unsubscribe() }
+  fn unsubscribe(&mut self) {
+    self.0.unsubscribe()
+  }
   #[inline]
-  fn is_closed(&self) -> bool { self.0.is_closed() }
+  fn is_closed(&self) -> bool {
+    self.0.is_closed()
+  }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -85,19 +91,27 @@ impl SharedSubscription {
 }
 
 impl TearDownSize for SharedSubscription {
-  fn teardown_size(&self) -> usize { self.0.lock().unwrap().teardown.len() }
+  fn teardown_size(&self) -> usize {
+    self.0.lock().unwrap().teardown.len()
+  }
 }
 
 impl SubscriptionLike for SharedSubscription {
   #[inline]
-  fn unsubscribe(&mut self) { self.0.unsubscribe(); }
+  fn unsubscribe(&mut self) {
+    self.0.unsubscribe();
+  }
   #[inline]
-  fn is_closed(&self) -> bool { self.0.is_closed() }
+  fn is_closed(&self) -> bool {
+    self.0.is_closed()
+  }
 }
 
 pub trait Publisher: Observer + SubscriptionLike {
   #[inline]
-  fn is_finished(&self) -> bool { self.is_closed() || self.is_stopped() }
+  fn is_finished(&self) -> bool {
+    self.is_closed() || self.is_stopped()
+  }
 }
 
 impl<T> Publisher for T where T: Observer + SubscriptionLike {}
@@ -118,7 +132,9 @@ impl<T> Debug for Inner<T> {
 
 impl<T: SubscriptionLike> SubscriptionLike for Inner<T> {
   #[inline(always)]
-  fn is_closed(&self) -> bool { self.closed }
+  fn is_closed(&self) -> bool {
+    self.closed
+  }
 
   fn unsubscribe(&mut self) {
     if !self.closed {
@@ -155,10 +171,14 @@ where
   T: SubscriptionLike,
 {
   #[inline]
-  fn unsubscribe(&mut self) { self.lock().unwrap().unsubscribe() }
+  fn unsubscribe(&mut self) {
+    self.lock().unwrap().unsubscribe()
+  }
 
   #[inline]
-  fn is_closed(&self) -> bool { self.lock().unwrap().is_closed() }
+  fn is_closed(&self) -> bool {
+    self.lock().unwrap().is_closed()
+  }
 }
 
 impl<T> SubscriptionLike for Rc<RefCell<T>>
@@ -166,10 +186,14 @@ where
   T: SubscriptionLike,
 {
   #[inline]
-  fn unsubscribe(&mut self) { self.borrow_mut().unsubscribe() }
+  fn unsubscribe(&mut self) {
+    self.borrow_mut().unsubscribe()
+  }
 
   #[inline]
-  fn is_closed(&self) -> bool { self.borrow().is_closed() }
+  fn is_closed(&self) -> bool {
+    self.borrow().is_closed()
+  }
 }
 
 impl<T: ?Sized> SubscriptionLike for Box<T>
@@ -206,14 +230,20 @@ impl<T: SubscriptionLike> SubscriptionWrapper<T> {
   }
 
   /// Consumes this wrapper and returns the underlying subscription.
-  pub fn into_inner(self) -> T { self.0 }
+  pub fn into_inner(self) -> T {
+    self.0
+  }
 }
 
 impl<T: SubscriptionLike> SubscriptionLike for SubscriptionWrapper<T> {
   #[inline]
-  fn is_closed(&self) -> bool { self.0.is_closed() }
+  fn is_closed(&self) -> bool {
+    self.0.is_closed()
+  }
   #[inline]
-  fn unsubscribe(&mut self) { self.0.unsubscribe() }
+  fn unsubscribe(&mut self) {
+    self.0.unsubscribe()
+  }
 }
 
 /// An RAII implementation of a "scoped subscribed" of a subscription.
@@ -240,7 +270,9 @@ impl<T: SubscriptionLike> SubscriptionGuard<T> {
 
 impl<T: SubscriptionLike> Drop for SubscriptionGuard<T> {
   #[inline]
-  fn drop(&mut self) { self.0.unsubscribe() }
+  fn drop(&mut self) {
+    self.0.unsubscribe()
+  }
 }
 
 #[cfg(test)]

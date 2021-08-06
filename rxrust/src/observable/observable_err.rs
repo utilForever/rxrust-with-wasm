@@ -16,15 +16,21 @@ where
   type Item = Item;
   type Err = Err;
   #[inline]
-  fn next(&mut self, err: Item) { (self.next)(err); }
+  fn next(&mut self, err: Item) {
+    (self.next)(err);
+  }
   fn error(&mut self, err: Err) {
     (self.error)(err);
     self.is_stopped = true;
   }
   #[inline]
-  fn complete(&mut self) { self.is_stopped = true; }
+  fn complete(&mut self) {
+    self.is_stopped = true;
+  }
   #[inline]
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 
 impl<N, E, Item, Err> ObserverErr<N, E, Item, Err> {
@@ -49,7 +55,7 @@ pub trait SubscribeErr<'a, N, E> {
   /// * `error`: A handler for a terminal event resulting from an error.
   /// completion.
   fn subscribe_err(self, next: N, error: E)
-  -> SubscriptionWrapper<Self::Unsub>;
+    -> SubscriptionWrapper<Self::Unsub>;
 }
 
 impl<'a, S, N, E> SubscribeErr<'a, N, E> for S

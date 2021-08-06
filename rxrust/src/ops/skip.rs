@@ -76,7 +76,9 @@ where
   complete_proxy_impl!(observer);
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.is_stopped()
+  }
 }
 
 #[cfg(test)]
@@ -135,9 +137,13 @@ mod test {
   }
 
   #[test]
-  fn benchmark() { do_bench(); }
+  fn benchmark() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench);
 
-  fn bench(b: &mut bencher::Bencher) { b.iter(base_function); }
+  fn bench(b: &mut bencher::Bencher) {
+    b.iter(base_function);
+  }
 }

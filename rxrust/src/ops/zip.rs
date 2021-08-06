@@ -160,7 +160,9 @@ where
 {
   type Item = A;
   type Err = Err;
-  fn next(&mut self, value: A) { self.0.next(ZipItem::ItemA(value)); }
+  fn next(&mut self, value: A) {
+    self.0.next(ZipItem::ItemA(value));
+  }
 
   error_proxy_impl!(Err, 0);
   complete_proxy_impl!(0);
@@ -175,7 +177,9 @@ where
 {
   type Item = B;
   type Err = Err;
-  fn next(&mut self, value: B) { self.0.next(ZipItem::ItemB(value)); }
+  fn next(&mut self, value: B) {
+    self.0.next(ZipItem::ItemB(value));
+  }
 
   error_proxy_impl!(Err, 0);
   complete_proxy_impl!(0);
@@ -230,9 +234,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_zip);
 
-  fn bench_zip(b: &mut bencher::Bencher) { b.iter(smoke); }
+  fn bench_zip(b: &mut bencher::Bencher) {
+    b.iter(smoke);
+  }
 }

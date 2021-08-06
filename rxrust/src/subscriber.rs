@@ -53,14 +53,20 @@ where
   }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.is_stopped()
+  }
 }
 
 impl<O, U: SubscriptionLike> SubscriptionLike for Subscriber<O, U> {
   #[inline]
-  fn is_closed(&self) -> bool { self.subscription.is_closed() }
+  fn is_closed(&self) -> bool {
+    self.subscription.is_closed()
+  }
   #[inline]
-  fn unsubscribe(&mut self) { self.subscription.unsubscribe() }
+  fn unsubscribe(&mut self) {
+    self.subscription.unsubscribe()
+  }
 }
 
 #[cfg(test)]
@@ -95,8 +101,8 @@ mod test {
 
   type SubscriberInfo<O> =
     (Arc<Mutex<i32>>, Arc<Mutex<i32>>, Arc<Mutex<i32>>, O);
-  fn shared_subscriber_creator()
-  -> SubscriberInfo<impl Observer<Item = i32, Err = ()>> {
+  fn shared_subscriber_creator(
+  ) -> SubscriberInfo<impl Observer<Item = i32, Err = ()>> {
     let next = Arc::new(Mutex::new(0));
     let err = Arc::new(Mutex::new(0));
     let complete = Arc::new(Mutex::new(0));

@@ -171,9 +171,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_scan);
 
-  fn bench_scan(b: &mut bencher::Bencher) { b.iter(scan_initial); }
+  fn bench_scan(b: &mut bencher::Bencher) {
+    b.iter(scan_initial);
+  }
 }

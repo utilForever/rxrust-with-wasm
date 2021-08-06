@@ -118,9 +118,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_skip_while);
 
-  fn bench_skip_while(b: &mut bencher::Bencher) { b.iter(base_function); }
+  fn bench_skip_while(b: &mut bencher::Bencher) {
+    b.iter(base_function);
+  }
 }

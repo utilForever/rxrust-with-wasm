@@ -119,9 +119,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_take);
 
-  fn bench_take(b: &mut bencher::Bencher) { b.iter(base_function); }
+  fn bench_take(b: &mut bencher::Bencher) {
+    b.iter(base_function);
+  }
 }

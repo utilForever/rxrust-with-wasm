@@ -27,7 +27,9 @@ struct Inner<C, U> {
 pub struct RefCount<T, C>(T, TypeHint<C>);
 
 impl<T: Clone, C> Clone for RefCount<T, C> {
-  fn clone(&self) -> Self { RefCount(self.0.clone(), TypeHint::new()) }
+  fn clone(&self) -> Self {
+    RefCount(self.0.clone(), TypeHint::new())
+  }
 }
 
 type LocalRef<C, U> = Rc<RefCell<Inner<C, U>>>;
@@ -48,7 +50,9 @@ where
   S: LocalObservable<'a, Item = Item, Err = Err>,
 {
   #[inline]
-  fn clone(&self) -> Self { InnerLocalRefCount(self.0.clone()) }
+  fn clone(&self) -> Self {
+    InnerLocalRefCount(self.0.clone())
+  }
 }
 
 type SharedRef<C, U> = Arc<Mutex<Inner<C, U>>>;
@@ -64,7 +68,9 @@ where
   S: SharedObservable<Item = Item, Err = Err>,
 {
   #[inline]
-  fn clone(&self) -> Self { InnerSharedRefCount(self.0.clone()) }
+  fn clone(&self) -> Self {
+    InnerSharedRefCount(self.0.clone())
+  }
 }
 
 pub type SharedRefCount<S, Item, Err> = RefCount<
@@ -196,7 +202,9 @@ where
   }
 
   #[inline(always)]
-  fn is_closed(&self) -> bool { self.subscription.is_closed() }
+  fn is_closed(&self) -> bool {
+    self.subscription.is_closed()
+  }
 }
 
 #[cfg(test)]
@@ -268,9 +276,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_ref_count);
 
-  fn bench_ref_count(b: &mut bencher::Bencher) { b.iter(smoke) }
+  fn bench_ref_count(b: &mut bencher::Bencher) {
+    b.iter(smoke)
+  }
 }

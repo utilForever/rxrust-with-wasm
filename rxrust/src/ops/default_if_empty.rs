@@ -132,16 +132,24 @@ mod test {
   }
 
   #[test]
-  fn bench_base() { bench_b(); }
+  fn bench_base() {
+    bench_b();
+  }
 
   benchmark_group!(bench_b, bench_base_funciton);
 
-  fn bench_base_funciton(b: &mut Bencher) { b.iter(base_function); }
+  fn bench_base_funciton(b: &mut Bencher) {
+    b.iter(base_function);
+  }
 
   #[test]
-  fn bench_empty() { bench_e(); }
+  fn bench_empty() {
+    bench_e();
+  }
 
   benchmark_group!(bench_e, bench_empty_funciton);
 
-  fn bench_empty_funciton(b: &mut Bencher) { b.iter(base_empty_function); }
+  fn bench_empty_funciton(b: &mut Bencher) {
+    b.iter(base_empty_function);
+  }
 }

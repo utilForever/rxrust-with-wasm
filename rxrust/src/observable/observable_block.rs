@@ -28,14 +28,22 @@ where
   type Item = Item;
   type Err = ();
   #[inline(always)]
-  fn next(&mut self, value: Self::Item) { (self.next)(value); }
+  fn next(&mut self, value: Self::Item) {
+    (self.next)(value);
+  }
 
-  fn error(&mut self, _err: ()) { *self.is_stopped.lock().unwrap() = true; }
+  fn error(&mut self, _err: ()) {
+    *self.is_stopped.lock().unwrap() = true;
+  }
 
-  fn complete(&mut self) { *self.is_stopped.lock().unwrap() = true; }
+  fn complete(&mut self) {
+    *self.is_stopped.lock().unwrap() = true;
+  }
 
   #[inline]
-  fn is_stopped(&self) -> bool { *self.is_stopped.lock().unwrap() }
+  fn is_stopped(&self) -> bool {
+    *self.is_stopped.lock().unwrap()
+  }
 }
 
 pub trait SubscribeBlocking<'a, N> {

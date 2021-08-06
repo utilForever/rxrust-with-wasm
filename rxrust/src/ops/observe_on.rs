@@ -1,8 +1,5 @@
 use crate::prelude::*;
-use std::{
-  cell::RefCell,
-  rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone)]
 pub struct ObserveOnOp<S, SD> {
@@ -91,7 +88,9 @@ where
   impl_observer!(Item, Err);
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.observer.borrow().is_stopped() }
+  fn is_stopped(&self) -> bool {
+    self.observer.borrow().is_stopped()
+  }
 }
 
 #[cfg(test)]
@@ -161,9 +160,13 @@ mod test {
     assert_eq!(c_emitted.lock().unwrap().len(), 0);
   }
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_observe_on);
 
-  fn bench_observe_on(b: &mut bencher::Bencher) { b.iter(smoke); }
+  fn bench_observe_on(b: &mut bencher::Bencher) {
+    b.iter(smoke);
+  }
 }

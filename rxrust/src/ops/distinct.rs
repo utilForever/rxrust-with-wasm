@@ -94,9 +94,13 @@ mod tests {
       .subscribe(|_| {});
   }
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_distinct);
 
-  fn bench_distinct(b: &mut bencher::Bencher) { b.iter(smoke); }
+  fn bench_distinct(b: &mut bencher::Bencher) {
+    b.iter(smoke);
+  }
 }

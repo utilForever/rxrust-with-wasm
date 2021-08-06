@@ -101,10 +101,14 @@ where
   }
 
   #[inline]
-  fn complete(&mut self) { self.is_stopped = true; }
+  fn complete(&mut self) {
+    self.is_stopped = true;
+  }
 
   #[inline]
-  fn is_stopped(&self) -> bool { self.is_stopped }
+  fn is_stopped(&self) -> bool {
+    self.is_stopped
+  }
 }
 
 #[cfg(test)]
@@ -176,9 +180,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_take_until);
 
-  fn bench_take_until(b: &mut bencher::Bencher) { b.iter(base_function); }
+  fn bench_take_until(b: &mut bencher::Bencher) {
+    b.iter(base_function);
+  }
 }

@@ -15,7 +15,9 @@ pub trait LocalEmitter<'a>: Emitter {
 pub struct ObservableBase<Emit>(Emit);
 
 impl<Emit> ObservableBase<Emit> {
-  pub fn new(emitter: Emit) -> Self { ObservableBase(emitter) }
+  pub fn new(emitter: Emit) -> Self {
+    ObservableBase(emitter)
+  }
 }
 
 #[doc(hidden)]

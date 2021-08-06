@@ -351,9 +351,13 @@ mod test {
   }
 
   #[test]
-  fn bench() { do_bench(); }
+  fn bench() {
+    do_bench();
+  }
 
   benchmark_group!(do_bench, bench_of);
 
-  fn bench_of(b: &mut bencher::Bencher) { b.iter(of); }
+  fn bench_of(b: &mut bencher::Bencher) {
+    b.iter(of);
+  }
 }
