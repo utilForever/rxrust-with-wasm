@@ -2,7 +2,6 @@ use crate::prelude::*;
 use std::{
   cell::RefCell,
   rc::Rc,
-  sync::{Arc, Mutex},
   time::{Duration, Instant},
 };
 
@@ -58,10 +57,6 @@ struct DebounceObserver<O, S, Item> {
   trailing_value: Option<Item>,
   last_updated: Option<Instant>,
 }
-
-struct SharedDebounceObserver<O, S, Item>(
-  Arc<Mutex<DebounceObserver<O, S, Item>>>,
-);
 
 struct LocalDebounceObserver<O, S, Item>(
   Rc<RefCell<DebounceObserver<O, S, Item>>>,

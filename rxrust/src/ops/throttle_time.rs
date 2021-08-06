@@ -2,7 +2,6 @@ use crate::prelude::*;
 use std::{
   cell::RefCell,
   rc::Rc,
-  sync::{Arc, Mutex},
   time::Duration,
 };
 
@@ -71,10 +70,6 @@ struct ThrottleObserver<O, S, Item, Sub> {
   throttled: Option<SpawnHandle>,
   subscription: Sub,
 }
-
-struct SharedThrottleObserver<O, S, Item>(
-  Arc<Mutex<ThrottleObserver<O, S, Item, SharedSubscription>>>,
-);
 
 struct LocalThrottleObserver<O, S, Item>(
   Rc<RefCell<ThrottleObserver<O, S, Item, LocalSubscription>>>,

@@ -2,7 +2,6 @@ use crate::prelude::*;
 use std::{
   cell::RefCell,
   rc::Rc,
-  sync::{Arc, Mutex},
 };
 
 #[derive(Clone)]
