@@ -1,14 +1,10 @@
 use super::box_it::LocalBoxOp;
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 use super::box_it::SharedBoxOp;
 use crate::prelude::*;
-use std::{
-  cell::RefCell,
-  collections::VecDeque,
-  rc::Rc,
-};
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 use std::sync::{Arc, Mutex};
+use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 
 pub struct MergeAllOp<S> {
   pub concurrent: usize,
@@ -132,7 +128,7 @@ where
   }
 }
 
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 impl<S> SharedObservable for MergeAllOp<S>
 where
   S: SharedObservable,
@@ -161,7 +157,7 @@ where
   }
 }
 
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 pub struct SharedMergeAllObserver<O: Observer> {
   observer: O,
   subscribed: usize,
@@ -171,7 +167,7 @@ pub struct SharedMergeAllObserver<O: Observer> {
   buffer: VecDeque<SharedBoxOp<O::Item, O::Err>>,
 }
 
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 impl<O> Observer for Arc<Mutex<SharedMergeAllObserver<O>>>
 where
   O: Observer + Send + Sync + 'static,
@@ -207,10 +203,10 @@ where
   }
 }
 
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 struct SharedInnerObserver<O: Observer>(Arc<Mutex<SharedMergeAllObserver<O>>>);
 
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 impl<O> Observer for SharedInnerObserver<O>
 where
   O: Observer + Send + Sync + 'static,
@@ -273,7 +269,7 @@ mod test {
     );
   }
 
-  #[cfg(not(feature = "wasm-scheduler"))]
+  #[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
   #[test]
   fn shared() {
     let values = Arc::new(Mutex::new(vec![]));

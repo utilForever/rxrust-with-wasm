@@ -17,7 +17,7 @@ pub fn task_future<T>(
   (fut.map(|_| ()), SpawnHandle::new(handle))
 }
 
-#[cfg(not(feature = "wasm-scheduler"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
 /// A Scheduler is an object to order task and schedule their execution.
 pub trait SharedScheduler {
   fn spawn<Fut>(&self, future: Fut)
@@ -104,6 +104,7 @@ impl SubscriptionLike for SpawnHandle {
   fn is_closed(&self) -> bool { *self.is_closed.read().unwrap() }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(feature = "futures-scheduler")]
 mod futures_scheduler {
   use crate::scheduler::{LocalScheduler, SharedScheduler};
@@ -293,15 +294,15 @@ mod test {
   }
 }
 
-#[cfg(feature = "wasm-scheduler")]
+#[cfg(all(target_arch = "wasm32", feature = "wasm-scheduler"))]
 mod wasm_scheduler {
   use crate::scheduler::LocalScheduler;
   use futures::{executor::LocalSpawner, Future, FutureExt};
 
   impl LocalScheduler for LocalSpawner {
     fn spawn<Fut>(&self, future: Fut)
-      where
-          Fut: Future<Output = ()> + 'static,
+    where
+      Fut: Future<Output = ()> + 'static,
     {
       wasm_bindgen_futures::spawn_local(future.map(|_| ()));
     }
