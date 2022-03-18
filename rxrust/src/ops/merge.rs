@@ -1,16 +1,10 @@
-use crate::next_proxy_impl;
-use crate::prelude::*;
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use crate::{impl_helper::*, impl_local_shared_both, prelude::*};
 
 #[derive(Clone)]
 pub struct MergeOp<S1, S2> {
   pub(crate) source1: S1,
   pub(crate) source2: S2,
 }
-
-pub struct SharedMergeOp<S1, S2>(MergeOp<S1, S2>);
 
 impl<S1, S2> Observable for MergeOp<S1, S2>
 where
@@ -21,64 +15,25 @@ where
   type Err = S1::Err;
 }
 
-impl<'a, S1, S2> LocalObservable<'a> for MergeOp<S1, S2>
-where
-  S1: LocalObservable<'a>,
-  S2: LocalObservable<'a, Item = S1::Item, Err = S1::Err>,
-{
-  type Unsub = LocalSubscription;
-
-  fn actual_subscribe<O: Observer<Item = Self::Item, Err = Self::Err> + 'a>(
-    self,
-    subscriber: Subscriber<O, LocalSubscription>,
-  ) -> Self::Unsub {
-    let subscription = subscriber.subscription;
-    let merge_observer = Rc::new(RefCell::new(MergeObserver {
-      observer: subscriber.observer,
+impl_local_shared_both! {
+  impl<S1, S2> MergeOp<S1, S2>;
+  type Unsub = @ctx::RcMultiSubscription;
+  macro method($self: ident, $observer: ident, $ctx: ident) {
+    let subscription = $ctx::RcMultiSubscription::default();
+    let merge_observer = $ctx::Rc::own(MergeObserver {
+      observer: $observer,
       subscription: subscription.clone(),
       completed_one: false,
-    }));
-    subscription.add(self.source1.actual_subscribe(Subscriber {
-      observer: merge_observer.clone(),
-      subscription: LocalSubscription::default(),
-    }));
-    subscription.add(self.source2.actual_subscribe(Subscriber {
-      observer: merge_observer,
-      subscription: LocalSubscription::default(),
-    }));
+    });
+    subscription.add($self.source1.actual_subscribe(merge_observer.clone()));
+    subscription.add($self.source2.actual_subscribe(merge_observer));
     subscription
   }
-}
-
-impl<S1, S2> SharedObservable for MergeOp<S1, S2>
-where
-  S1: SharedObservable,
-  S2: SharedObservable<Item = S1::Item, Err = S1::Err, Unsub = S1::Unsub>,
-  S1::Unsub: Send + Sync,
-{
-  type Unsub = SharedSubscription;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> Self::Unsub {
-    let subscription = subscriber.subscription;
-    let merge_observer = Arc::new(Mutex::new(MergeObserver {
-      observer: subscriber.observer,
-      subscription: subscription.clone(),
-      completed_one: false,
-    }));
-    subscription.add(self.source1.actual_subscribe(Subscriber {
-      observer: merge_observer.clone(),
-      subscription: SharedSubscription::default(),
-    }));
-    subscription.add(self.source2.actual_subscribe(Subscriber {
-      observer: merge_observer,
-      subscription: SharedSubscription::default(),
-    }));
-    subscription
-  }
+  where
+    S1: @ctx::Observable,
+    S2: @ctx::Observable<Item=S1::Item, Err=S1::Err>,
+    S1::Unsub: 'static,
+    S2::Unsub: 'static
 }
 
 #[derive(Clone)]
@@ -95,7 +50,9 @@ where
 {
   type Item = Item;
   type Err = Err;
-  next_proxy_impl!(Item, observer);
+
+  fn next(&mut self, value: Item) { self.observer.next(value) }
+
   fn error(&mut self, err: Err) {
     self.observer.error(err);
     self.subscription.unsubscribe();
@@ -107,11 +64,6 @@ where
     } else {
       self.completed_one = true;
     }
-  }
-
-  #[inline]
-  fn is_stopped(&self) -> bool {
-    self.observer.is_stopped()
   }
 }
 
@@ -218,7 +170,7 @@ mod test {
 
   #[test]
   fn merge_fork() {
-    let o = observable::create(|mut s| {
+    let o = observable::create(|s| {
       s.next(1);
       s.next(2);
       s.error(());
@@ -240,13 +192,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_merge);
 
-  fn bench_merge(b: &mut bencher::Bencher) {
-    b.iter(odd_even_merge);
-  }
+  fn bench_merge(b: &mut bencher::Bencher) { b.iter(odd_even_merge); }
 }

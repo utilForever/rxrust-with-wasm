@@ -15,10 +15,7 @@ pub mod interval;
 pub use interval::{interval, interval_at};
 
 pub(crate) mod connectable_observable;
-pub use connectable_observable::{
-  ConnectableObservable, LocalConnectableObservable,
-  SharedConnectableObservable,
-};
+pub use connectable_observable::{Connect, ConnectableObservable};
 
 mod observable_block_all;
 #[cfg(test)]
@@ -28,11 +25,14 @@ mod observable_block;
 #[cfg(test)]
 pub use observable_block::*;
 
-mod base;
-pub use base::*;
-
 pub mod from_fn;
 pub use from_fn::*;
+
+pub mod timer;
+pub use timer::{timer, timer_at};
+
+pub mod start;
+pub use start::start;
 
 mod observable_all;
 pub use observable_all::*;
@@ -40,43 +40,51 @@ mod observable_err;
 pub use observable_err::*;
 mod observable_next;
 pub use observable_next::*;
-mod observable_comp;
-
 mod defer;
-
+mod observable_comp;
 pub use defer::*;
 
 use crate::prelude::*;
 pub use observable_comp::*;
 
 use crate::ops::default_if_empty::DefaultIfEmptyOp;
+use crate::ops::distinct::{DistinctKeyOp, DistinctUntilKeyChangedOp};
+use crate::ops::pairwise::PairwiseOp;
+use crate::ops::tap::TapOp;
 use ops::{
   box_it::{BoxOp, IntoBox},
+  buffer::{BufferWithCountOp, BufferWithCountOrTimerOp, BufferWithTimeOp},
+  combine_latest::CombineLatestOp,
   contains::ContainsOp,
   debounce::DebounceOp,
   delay::DelayOp,
   distinct::DistinctOp,
+  distinct::DistinctUntilChangedOp,
   filter::FilterOp,
   filter_map::FilterMapOp,
   finalize::FinalizeOp,
   flatten::FlattenOp,
+  group_by::GroupByOp,
   last::LastOp,
   map::MapOp,
   map_to::MapToOp,
   merge::MergeOp,
+  merge_all::MergeAllOp,
   observe_on::ObserveOnOp,
-  ref_count::{RefCount, RefCountCreator},
   sample::SampleOp,
   scan::ScanOp,
   skip::SkipOp,
   skip_last::SkipLastOp,
+  skip_until::SkipUntilOp,
   skip_while::SkipWhileOp,
+  start_with::StartWithOp,
   subscribe_on::SubscribeOnOP,
   take::TakeOp,
   take_last::TakeLastOp,
   take_until::TakeUntilOp,
   take_while::TakeWhileOp,
   throttle_time::{ThrottleEdge, ThrottleTimeOp},
+  with_latest_from::WithLatestFromOp,
   zip::ZipOp,
   Accum, AverageOp, CountOp, FlatMapOp, MinMaxOp, ReduceOp, SumOp,
 };
@@ -92,9 +100,7 @@ pub trait Observable: Sized {
 
   /// emit only the first item emitted by an Observable
   #[inline]
-  fn first(self) -> TakeOp<Self> {
-    self.take(1)
-  }
+  fn first(self) -> TakeOp<Self> { self.take(1) }
 
   /// emit only the first item emitted by an Observable
   #[inline]
@@ -138,9 +144,7 @@ pub trait Observable: Sized {
   /// notification
   #[inline]
   fn ignore_elements(self) -> FilterOp<Self, fn(&Self::Item) -> bool> {
-    fn always_false<Item>(_: &Item) -> bool {
-      false
-    }
+    fn always_false<Item>(_: &Item) -> bool { false }
     self.filter(always_false as fn(&Self::Item) -> bool)
   }
 
@@ -150,9 +154,7 @@ pub trait Observable: Sized {
   where
     F: Fn(Self::Item) -> bool,
   {
-    fn not(b: &bool) -> bool {
-      !b
-    }
+    fn not(b: &bool) -> bool { !b }
     self
       .map(pred)
       .filter(not as fn(&bool) -> bool)
@@ -258,12 +260,56 @@ pub trait Observable: Sized {
     }
   }
 
+  /// Groups items emitted by the source Observable into Observables.
+  /// Each emitted Observable emits items matching the key returned
+  /// by the discriminator function.
+  ///
+  /// # Example
+  ///
+  /// ```
+  /// use rxrust::prelude::*;
+  ///
+  /// #[derive(Clone)]
+  /// struct Person {
+  ///   name: String,
+  ///   age: u32,
+  /// }
+  ///
+  /// observable::from_iter([
+  ///   Person{ name: String::from("John"), age: 26 },
+  ///   Person{ name: String::from("Anne"), age: 28 },
+  ///   Person{ name: String::from("Gregory"), age: 24 },
+  ///   Person{ name: String::from("Alice"), age: 28 },
+  /// ])
+  /// .group_by(|person: &Person| person.age)
+  /// .subscribe(|group| {
+  ///   group
+  ///   .reduce(|acc, person| format!("{} {}", acc, person.name))
+  ///   .subscribe(|result| println!("{}", result));
+  /// });
+  ///
+  /// // Prints:
+  /// //  John
+  /// //  Anne Alice
+  /// //  Gregory
+  /// ```
+  #[inline]
+  fn group_by<D, Item, Key>(self, discr: D) -> GroupByOp<Self, D>
+  where
+    D: FnMut(&Item) -> Key,
+  {
+    GroupByOp {
+      source: self,
+      discr,
+    }
+  }
+
   /// Creates a new stream which calls a closure on each element and uses
   /// its return as the value.
   #[inline]
   fn map<B, F>(self, f: F) -> MapOp<Self, F>
   where
-    F: Fn(Self::Item) -> B,
+    F: FnMut(Self::Item) -> B,
   {
     MapOp {
       source: self,
@@ -306,6 +352,33 @@ pub trait Observable: Sized {
     MergeOp {
       source1: self,
       source2: o,
+    }
+  }
+
+  /// Converts a higher-order Observable into a first-order Observable which
+  /// concurrently delivers all values that are emitted on the inner
+  /// Observables.
+  ///
+  /// # Example
+  ///
+  /// ```
+  /// # use rxrust::prelude::*;
+  /// # use futures::executor::LocalPool;
+  /// # use std::time::Duration;
+  /// let mut local = LocalPool::new();
+  /// observable::from_iter(
+  ///   (0..3)
+  ///     .map(|_| interval(Duration::from_millis(1), local.spawner()).take(5)),
+  /// )
+  /// .merge_all(2)
+  /// .subscribe(move |i| println!("{}", i));
+  /// local.run();
+  /// ```
+  #[inline]
+  fn merge_all(self, concurrent: usize) -> MergeAllOp<Self> {
+    MergeAllOp {
+      source: self,
+      concurrent,
     }
   }
 
@@ -420,6 +493,37 @@ pub trait Observable: Sized {
     SkipOp {
       source: self,
       count,
+    }
+  }
+
+  /// Ignore the values emitted by the source Observable until the `predicate`
+  /// returns true for the value.
+  ///
+  /// `skip_until` returns an Observable that skips values emitted by the source
+  /// Observable until the result of the predicate is true for the value. The
+  /// resulting Observable will include and emit the matching value.
+  ///
+  /// # Example
+  /// Ignore the numbers in the 0-10 range until the Observer emits 5.
+  ///
+  /// ```
+  /// # use rxrust::prelude::*;
+  ///
+  /// let mut items = vec![];
+  /// observable::from_iter(0..10)
+  ///   .skip_until(|v| v == &5)
+  ///   .subscribe(|v| items.push(v));
+  ///
+  /// assert_eq!((5..10).collect::<Vec<i32>>(), items);
+  /// ```
+  #[inline]
+  fn skip_until<F>(self, predicate: F) -> SkipUntilOp<Self, F>
+  where
+    F: FnMut(&Self::Item) -> bool,
+  {
+    SkipUntilOp {
+      source: self,
+      predicate,
     }
   }
 
@@ -567,6 +671,40 @@ pub trait Observable: Sized {
     TakeWhileOp {
       source: self,
       callback,
+      inclusive: false,
+    }
+  }
+
+  /// Emits values while result of an callback is true and the last one that
+  /// causes the callback to return false.
+  ///
+  /// # Example
+  /// Take the first 5 seconds of an infinite 1-second interval Observable
+  ///
+  /// ```
+  /// # use rxrust::prelude::*;
+  ///
+  /// observable::from_iter(0..10)
+  ///   .take_while_inclusive(|v| v < &4)
+  /// .subscribe(|v| println!("{}", v));
+
+  /// // print logs:
+  /// // 0
+  /// // 1
+  /// // 2
+  /// // 3
+  /// // 4
+  /// ```
+  ///
+  #[inline]
+  fn take_while_inclusive<F>(self, callback: F) -> TakeWhileOp<Self, F>
+  where
+    F: FnMut(&Self::Item) -> bool,
+  {
+    TakeWhileOp {
+      source: self,
+      callback,
+      inclusive: true,
     }
   }
 
@@ -897,9 +1035,7 @@ pub trait Observable: Sized {
   /// // 5
   /// ```
   #[inline]
-  fn count(self) -> CountOp<Self, Self::Item> {
-    self.reduce(|acc, _v| acc + 1)
-  }
+  fn count(self) -> CountOp<Self, Self::Item> { self.reduce(|acc, _v| acc + 1) }
 
   /// Calculates the sum of numbers emitted by an source observable and emits
   /// this sum when source completes.
@@ -939,7 +1075,7 @@ pub trait Observable: Sized {
       // Note: we will never be dividing by zero here, as
       // the acc.1 will be always >= 1.
       // It would have be zero if we've would have received an element
-      // when the source observable is empty but beacuse of how
+      // when the source observable is empty but because of how
       // `scan` works, we will transparently not receive anything in
       // such case.
       acc.0 * (1.0 / (acc.1 as f64))
@@ -971,10 +1107,7 @@ pub trait Observable: Sized {
   /// subscribe to the Observable before the Observable begins emitting items.
   #[inline]
   fn publish<Subject: Default>(self) -> ConnectableObservable<Self, Subject> {
-    ConnectableObservable {
-      source: self,
-      subject: Subject::default(),
-    }
+    ConnectableObservable::new(self)
   }
 
   /// Returns a new Observable that multicast (shares) the original
@@ -984,15 +1117,14 @@ pub trait Observable: Sized {
   /// Because the Observable is multicasting it makes the stream `hot`.
   /// This is an alias for `publish().ref_count()`
   #[inline]
-  fn share<Subject, Inner>(
+  fn share<Subject>(
     self,
-  ) -> RefCount<Inner, ConnectableObservable<Self, Subject>>
+  ) -> <ConnectableObservable<Self, Subject> as Connect>::R
   where
-    Inner: RefCountCreator<Connectable = ConnectableObservable<Self, Subject>>,
     Subject: Default,
-    Self: Clone,
+    ConnectableObservable<Self, Subject>: Connect,
   {
-    self.publish::<Subject>().ref_count::<Inner>()
+    self.publish::<Subject>().into_ref_count()
   }
 
   /// Delays the emission of items from the source Observable by a given timeout
@@ -1131,8 +1263,27 @@ pub trait Observable: Sized {
   /// Returns an Observable that emits all items emitted by the source
   /// Observable that are distinct by comparison from previous items.
   #[inline]
-  fn distinct(self) -> DistinctOp<Self> {
-    DistinctOp { source: self }
+  fn distinct(self) -> DistinctOp<Self> { DistinctOp { source: self } }
+
+  /// Variant of distinct that takes a key selector.
+  #[inline]
+  fn distinct_key<F>(self, key: F) -> DistinctKeyOp<Self, F> {
+    DistinctKeyOp { source: self, key }
+  }
+
+  /// Only emit when the current value is different than the last
+  #[inline]
+  fn distinct_until_changed(self) -> DistinctUntilChangedOp<Self> {
+    DistinctUntilChangedOp { source: self }
+  }
+
+  /// Variant of distinct_until_changed that takes a key selector.
+  #[inline]
+  fn distinct_until_key_changed<F>(
+    self,
+    key: F,
+  ) -> DistinctUntilKeyChangedOp<Self, F> {
+    DistinctUntilKeyChangedOp { source: self, key }
   }
 
   /// 'Zips up' two observable into a single observable of pairs.
@@ -1149,6 +1300,21 @@ pub trait Observable: Sized {
     U: Observable,
   {
     ZipOp { a: self, b: other }
+  }
+
+  /// Combines the source Observable with other Observables to create an
+  /// Observable whose values are calculated from the latest values of each,
+  /// only when the source emits.
+  ///
+  /// Whenever the source Observable emits a value, it computes a formula
+  /// using that value plus the latest values from other input Observables,
+  /// then emits the output of that formula.
+  #[inline]
+  fn with_latest_from<U>(self, other: U) -> WithLatestFromOp<Self, U>
+  where
+    U: Observable,
+  {
+    WithLatestFromOp { a: self, b: other }
   }
 
   /// Emits default value if Observable completed with empty result
@@ -1175,28 +1341,206 @@ pub trait Observable: Sized {
       default_value,
     }
   }
+
+  /// Buffers emitted values of type T in a Vec<T> and
+  /// emits that Vec<T> as soon as the buffer's size equals
+  /// the given count.
+  /// On complete, if the buffer is not empty,
+  /// it will be emitted.
+  /// On error, the buffer will be discarded.
+  ///
+  /// The operator never returns an empty buffer.
+  ///
+  /// #Example
+  /// ```
+  /// use rxrust::prelude::*;
+  ///
+  /// observable::from_iter(0..6)
+  ///   .buffer_with_count(3)
+  ///   .subscribe(|vec| println!("{:?}", vec));
+  ///
+  /// // Prints:
+  /// // [0, 1, 2]
+  /// // [3, 4, 5]
+  /// ```
+  #[inline]
+  fn buffer_with_count(self, count: usize) -> BufferWithCountOp<Self> {
+    BufferWithCountOp {
+      source: self,
+      count,
+    }
+  }
+
+  /// Buffers emitted values of type T in a Vec<T> and
+  /// emits that Vec<T> periodically.
+  ///
+  /// On complete, if the buffer is not empty,
+  /// it will be emitted.
+  /// On error, the buffer will be discarded.
+  ///
+  /// The operator never returns an empty buffer.
+  ///
+  /// #Example
+  /// ```
+  /// use rxrust::prelude::*;
+  /// use std::time::Duration;
+  /// use futures::executor::ThreadPool;
+  ///
+  /// let pool = ThreadPool::new().unwrap();
+  ///
+  /// observable::create(|mut subscriber| {
+  ///   subscriber.next(0);
+  ///   subscriber.next(1);
+  ///   std::thread::sleep(Duration::from_millis(100));
+  ///   subscriber.next(2);
+  ///   subscriber.next(3);
+  ///   subscriber.complete();
+  /// })
+  ///   .buffer_with_time(Duration::from_millis(50), pool)
+  ///   .into_shared()
+  ///   .subscribe(|vec| println!("{:?}", vec));
+  ///
+  /// // Prints:
+  /// // [0, 1]
+  /// // [2, 3]
+  /// ```
+  #[inline]
+  fn buffer_with_time<S>(
+    self,
+    time: Duration,
+    scheduler: S,
+  ) -> BufferWithTimeOp<Self, S> {
+    BufferWithTimeOp {
+      source: self,
+      time,
+      scheduler,
+    }
+  }
+
+  /// Buffers emitted values of type T in a Vec<T> and
+  /// emits that Vec<T> either if the buffer's size equals count, or
+  /// periodically. This operator combines the functionality of
+  /// buffer_with_count and buffer_with_time.
+  ///
+  /// #Example
+  /// ```
+  /// use rxrust::prelude::*;
+  /// use std::time::Duration;
+  /// use futures::executor::ThreadPool;
+  ///
+  /// let pool = ThreadPool::new().unwrap();
+  ///
+  /// observable::create(|mut subscriber| {
+  ///   subscriber.next(0);
+  ///   subscriber.next(1);
+  ///   subscriber.next(2);
+  ///   std::thread::sleep(Duration::from_millis(100));
+  ///   subscriber.next(3);
+  ///   subscriber.next(4);
+  ///   subscriber.complete();
+  /// })
+  ///   .buffer_with_count_and_time(2, Duration::from_millis(50), pool)
+  ///   .into_shared()
+  ///   .subscribe(|vec| println!("{:?}", vec));
+  ///
+  /// // Prints:
+  /// // [0, 1]
+  /// // [2]
+  /// // [3, 4]
+  /// ```
+  #[inline]
+  fn buffer_with_count_and_time<S>(
+    self,
+    count: usize,
+    time: Duration,
+    scheduler: S,
+  ) -> BufferWithCountOrTimerOp<Self, S> {
+    BufferWithCountOrTimerOp {
+      source: self,
+      count,
+      time,
+      scheduler,
+    }
+  }
+
+  /// Emits item which is combining latest items from two observables.
+  ///
+  /// combine_latest() merges two observables into one observable
+  /// by applying a binary operator on the latest item of two observable
+  /// whenever each of observables produces an element.
+  ///
+  /// #Example
+  /// ```
+  /// use rxrust::prelude::*;
+  /// use std::time::Duration;
+  /// use futures::executor::LocalPool;
+  ///
+  /// let mut local_scheduler = LocalPool::new();
+  /// let spawner = local_scheduler.spawner();
+  /// observable::interval(Duration::from_millis(2), spawner.clone())
+  ///   .combine_latest(
+  ///     observable::interval(Duration::from_millis(3), spawner),
+  ///     |a, b| (a, b),
+  ///   )
+  ///   .take(5)
+  ///   .subscribe(move |v| println!("{}, {}", v.0, v.1));
+  ///
+  /// local_scheduler.run();
+  /// // print logs:
+  /// // 0, 0
+  /// // 1, 0
+  /// // 2, 0
+  /// // 2, 1
+  /// // 3, 1
+  /// ```
+  fn combine_latest<O, BinaryOp, OutputItem>(
+    self,
+    other: O,
+    binary_op: BinaryOp,
+  ) -> CombineLatestOp<Self, O, BinaryOp>
+  where
+    O: Observable<Err = Self::Err>,
+    BinaryOp: FnMut(Self::Item, O::Item) -> OutputItem,
+  {
+    CombineLatestOp {
+      a: self,
+      b: other,
+      binary_op,
+    }
+  }
+
+  /// Returns an observable that, at the moment of subscription, will
+  /// synchronously emit all values provided to this operator, then subscribe
+  /// to the source and mirror all of its emissions to subscribers.
+  fn start_with<B>(self, values: Vec<B>) -> StartWithOp<Self, B> {
+    StartWithOp {
+      source: self,
+      values,
+    }
+  }
+
+  /// Groups pairs of consecutive emissions together and emits them as an pair
+  /// of two values.
+  fn pairwise(self) -> PairwiseOp<Self> { PairwiseOp { source: self } }
+
+  /// Used to perform side-effects for notifications from the source observable
+  #[inline]
+  fn tap<F>(self, f: F) -> TapOp<Self, F>
+  where
+    F: FnMut(&Self::Item),
+  {
+    TapOp {
+      source: self,
+      func: f,
+    }
+  }
 }
 
 pub trait LocalObservable<'a>: Observable {
-  type Unsub: SubscriptionLike + 'static;
-  fn actual_subscribe<O: Observer<Item = Self::Item, Err = Self::Err> + 'a>(
-    self,
-    subscriber: Subscriber<O, LocalSubscription>,
-  ) -> Self::Unsub;
-}
-
-#[macro_export]
-macro_rules! observable_proxy_impl {
-    ($ty: ident, $host: ident$(, $lf: lifetime)?$(, $generics: ident) *) => {
-  impl<$($lf, )? $host, $($generics ,)*> Observable
-    for $ty<$($lf, )? $host, $($generics ,)*>
+  type Unsub: SubscriptionLike;
+  fn actual_subscribe<O>(self, observer: O) -> Self::Unsub
   where
-    $host: Observable
-  {
-    type Item = $host::Item;
-    type Err = $host::Err;
-  }
-}
+    O: Observer<Item = Self::Item, Err = Self::Err> + 'a;
 }
 
 #[cfg(test)]
@@ -1213,15 +1557,11 @@ mod tests {
   }
 
   #[test]
-  fn bench_element_at() {
-    do_bench_element_at();
-  }
+  fn bench_element_at() { do_bench_element_at(); }
 
   benchmark_group!(do_bench_element_at, element_at_bench);
 
-  fn element_at_bench(b: &mut bencher::Bencher) {
-    b.iter(smoke_element_at);
-  }
+  fn element_at_bench(b: &mut bencher::Bencher) { b.iter(smoke_element_at); }
 
   #[test]
   fn first() {
@@ -1237,15 +1577,11 @@ mod tests {
   }
 
   #[test]
-  fn bench_first() {
-    do_bench_first();
-  }
+  fn bench_first() { do_bench_first(); }
 
   benchmark_group!(do_bench_first, first_bench);
 
-  fn first_bench(b: &mut bencher::Bencher) {
-    b.iter(first);
-  }
+  fn first_bench(b: &mut bencher::Bencher) { b.iter(first); }
 
   #[test]
   fn first_or() {
@@ -1270,15 +1606,11 @@ mod tests {
   }
 
   #[test]
-  fn bench_first_or() {
-    do_bench_first_or();
-  }
+  fn bench_first_or() { do_bench_first_or(); }
 
   benchmark_group!(do_bench_first_or, first_or_bench);
 
-  fn first_or_bench(b: &mut bencher::Bencher) {
-    b.iter(first_or);
-  }
+  fn first_or_bench(b: &mut bencher::Bencher) { b.iter(first_or); }
 
   #[test]
   fn first_support_fork() {
@@ -1299,7 +1631,7 @@ mod tests {
   fn first_or_support_fork() {
     let mut default = 0;
     let mut default2 = 0;
-    let o = observable::create(|mut subscriber| {
+    let o = observable::create(|subscriber| {
       subscriber.complete();
     })
     .first_or(100);
@@ -1319,9 +1651,7 @@ mod tests {
   }
 
   #[test]
-  fn bench_ignore() {
-    do_bench_ignore();
-  }
+  fn bench_ignore() { do_bench_ignore(); }
 
   benchmark_group!(do_bench_ignore, ignore_emements_bench);
 
@@ -1348,13 +1678,9 @@ mod tests {
   }
 
   #[test]
-  fn bench_all() {
-    do_bench_all();
-  }
+  fn bench_all() { do_bench_all(); }
 
   benchmark_group!(do_bench_all, all_bench);
 
-  fn all_bench(b: &mut bencher::Bencher) {
-    b.iter(smoke_all);
-  }
+  fn all_bench(b: &mut bencher::Bencher) { b.iter(smoke_all); }
 }

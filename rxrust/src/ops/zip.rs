@@ -1,10 +1,5 @@
-use crate::prelude::*;
-use crate::{complete_proxy_impl, error_proxy_impl, is_stopped_proxy_impl};
-use std::cell::RefCell;
+use crate::{impl_helper::*, impl_local_shared_both, prelude::*};
 use std::collections::VecDeque;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
-
 /// An Observable that combines from two other two Observables.
 ///
 /// This struct is created by the zip method on [Observable](Observable::zip).
@@ -24,66 +19,36 @@ where
   type Err = A::Err;
 }
 
-impl<'a, A, B> LocalObservable<'a> for ZipOp<A, B>
-where
-  A: LocalObservable<'a>,
-  B: LocalObservable<'a, Err = A::Err>,
-  A::Item: 'a,
-  B::Item: 'a,
-{
-  type Unsub = LocalSubscription;
-  fn actual_subscribe<O: Observer<Item = Self::Item, Err = Self::Err> + 'a>(
-    self,
-    subscriber: Subscriber<O, LocalSubscription>,
-  ) -> Self::Unsub {
-    let sub = subscriber.subscription;
-    let o_zip = ZipObserver::new(subscriber.observer, sub.clone());
-    let o_zip = Rc::new(RefCell::new(o_zip));
-    sub.add(self.a.actual_subscribe(Subscriber {
-      observer: AObserver(o_zip.clone(), TypeHint::new()),
-      subscription: LocalSubscription::default(),
-    }));
+impl_local_shared_both! {
+  impl<A, B> ZipOp<A, B>;
+  type Unsub = @ctx::RcMultiSubscription;
+  macro method($self:ident, $observer: ident, $ctx: ident) {
+    let sub = $ctx::RcMultiSubscription::default();
+    let o_zip = ZipObserver::new($observer, sub.clone());
+    let o_zip = $ctx::Rc::own(o_zip);
+    sub.add(
+      $self
+        .a
+        .actual_subscribe(AObserver(o_zip.clone(), TypeHint::new())),
+    );
 
-    sub.add(self.b.actual_subscribe(Subscriber {
-      observer: BObserver(o_zip, TypeHint::new()),
-      subscription: LocalSubscription::default(),
-    }));
+    sub.add($self.b.actual_subscribe(BObserver(o_zip, TypeHint::new())));
     sub
   }
+  where
+    A: @ctx::Observable,
+    B: @ctx::Observable<Err=A::Err>,
+    @ctx::shared_only(
+      A::Item: Send + Sync + 'static,
+      B::Item: Send + Sync + 'static,
+    )
+    @ctx::local_only(
+      A::Item: 'o,
+      B::Item: 'o,
+    )
+    A::Unsub: 'static @ctx::shared_only(+Send + Sync),
+    B::Unsub:'static @ctx::shared_only(+Send + Sync)
 }
-
-impl<A, B> SharedObservable for ZipOp<A, B>
-where
-  A: SharedObservable,
-  B: SharedObservable<Err = A::Err>,
-  A::Item: Send + Sync + 'static,
-  B::Item: Send + Sync + 'static,
-  A::Unsub: Send + Sync,
-  B::Unsub: Send + Sync,
-{
-  type Unsub = SharedSubscription;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> Self::Unsub {
-    let sub = subscriber.subscription;
-    let o_zip = ZipObserver::new(subscriber.observer, sub.clone());
-    let o_zip = Arc::new(Mutex::new(o_zip));
-    sub.add(self.a.actual_subscribe(Subscriber {
-      observer: AObserver(o_zip.clone(), TypeHint::new()),
-      subscription: SharedSubscription::default(),
-    }));
-
-    sub.add(self.b.actual_subscribe(Subscriber {
-      observer: BObserver(o_zip, TypeHint::new()),
-      subscription: SharedSubscription::default(),
-    }));
-    sub
-  }
-}
-
 enum ZipItem<A, B> {
   ItemA(A),
   ItemB(B),
@@ -148,8 +113,6 @@ where
       self.completed_one = true;
     }
   }
-
-  is_stopped_proxy_impl!(observer);
 }
 
 struct AObserver<O, B>(O, TypeHint<B>);
@@ -160,13 +123,11 @@ where
 {
   type Item = A;
   type Err = Err;
-  fn next(&mut self, value: A) {
-    self.0.next(ZipItem::ItemA(value));
-  }
+  fn next(&mut self, value: A) { self.0.next(ZipItem::ItemA(value)); }
 
-  error_proxy_impl!(Err, 0);
-  complete_proxy_impl!(0);
-  is_stopped_proxy_impl!(0);
+  fn error(&mut self, err: Self::Err) { self.0.error(err) }
+
+  fn complete(&mut self) { self.0.complete() }
 }
 
 struct BObserver<O, A>(O, TypeHint<A>);
@@ -177,13 +138,11 @@ where
 {
   type Item = B;
   type Err = Err;
-  fn next(&mut self, value: B) {
-    self.0.next(ZipItem::ItemB(value));
-  }
+  fn next(&mut self, value: B) { self.0.next(ZipItem::ItemB(value)); }
 
-  error_proxy_impl!(Err, 0);
-  complete_proxy_impl!(0);
-  is_stopped_proxy_impl!(0);
+  fn error(&mut self, err: Self::Err) { self.0.error(err) }
+
+  fn complete(&mut self) { self.0.complete() }
 }
 
 #[cfg(test)]
@@ -234,13 +193,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_zip);
 
-  fn bench_zip(b: &mut bencher::Bencher) {
-    b.iter(smoke);
-  }
+  fn bench_zip(b: &mut bencher::Bencher) { b.iter(smoke); }
 }

@@ -5,7 +5,7 @@ pub struct ObserverComp<N, C, Item> {
   next: N,
   complete: C,
   is_stopped: bool,
-  marker: TypeHint<*const Item>,
+  _marker: TypeHint<*const Item>,
 }
 
 impl<N, C, Item> Observer for ObserverComp<N, C, Item>
@@ -17,18 +17,17 @@ where
   type Err = ();
   #[inline]
   fn next(&mut self, value: Item) {
-    (self.next)(value);
+    if !self.is_stopped {
+      (self.next)(value);
+    }
   }
   #[inline]
-  fn error(&mut self, _err: ()) {
-    self.is_stopped = true;
-  }
+  fn error(&mut self, _err: ()) { self.is_stopped = true; }
   fn complete(&mut self) {
-    (self.complete)();
-    self.is_stopped = true;
-  }
-  fn is_stopped(&self) -> bool {
-    self.is_stopped
+    if !self.is_stopped {
+      (self.complete)();
+      self.is_stopped = true;
+    }
   }
 }
 
@@ -62,12 +61,12 @@ where
     Self: Sized,
     S::Item: 'a,
   {
-    let unsub = self.actual_subscribe(Subscriber::local(ObserverComp {
+    let unsub = self.actual_subscribe(ObserverComp {
       next,
       complete,
       is_stopped: false,
-      marker: TypeHint::new(),
-    }));
+      _marker: TypeHint::new(),
+    });
     SubscriptionWrapper(unsub)
   }
 }
@@ -88,12 +87,12 @@ where
   where
     Self: Sized,
   {
-    let unsub = self.0.actual_subscribe(Subscriber::shared(ObserverComp {
+    let unsub = self.0.actual_subscribe(ObserverComp {
       next,
       complete,
       is_stopped: false,
-      marker: TypeHint::new(),
-    }));
+      _marker: TypeHint::new(),
+    });
     SubscriptionWrapper(unsub)
   }
 }

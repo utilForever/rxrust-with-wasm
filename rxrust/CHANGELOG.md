@@ -1,6 +1,50 @@
-## [Unreleased](https://github.com/rxRust/rxRust/compare/v0.13.0...HEAD)
+## [Unreleased](https://github.com/rxRust/rxRust/compare/v1.0.0-alpha.2...HEAD)
+### Features
+- **operator**: add `start_with` operator.
+- **operator**: add `start` operator.
+- **operator**: add `distinct_until_changed` operator.
+- **operator**: add `distinct_key` operator.
+- **operator**: add `distinct_key_until_changed` operator.
+- **operator**: add `pairwise` operator.
+- **operator**: add `tap` operator.
 
-## [0.13.0](https://github.com/rxRust/rxRust/compare/v0.12.0...HEAD)
+### Refactor
+
+- **operator**: Re-implement `with_latest_from`, so that two operands don't require one shared observer at the same time anymore.
+
+## [1.0.0-alpha.2](https://github.com/rxRust/rxRust/releases/tag/v1.0.0-alpha.2)
+### Features
+- **operator**: add `with_latest_from` operator.
+
+### Bug Fixes
+- **subject**: subject emit buffer crash, borrow buffer only when pop value.
+
+## [1.0.0-alpha.1](https://github.com/rxRust/rxRust/releases/tag/v1.0.0-alpha.1)
+
+This is a big refactor version, `Subscriber` has been removed, `LocalObservable` and `SharedObservable` has direct to accept `Observer` instead of `Subscriber`. Provide `SingleSubscription` `ProxySubscription` and `MultiSubscription` to use, so we can choose the most suitable and efficient type when implementing operator. A macro named `impl_local_shared_both` help implement local & shared version at once. And nightly rust required before `GAT` stable.
+### Features
+- **operator**: add `skip_until` operator.
+- **operator**: add `combine_latest` operator.
+
+### Breaking Changes
+- **observer**: remove `Observer::is_stopped` method.
+- `Subscriber` removed.
+- The `LocalObservable` and `SharedObservable` now accept `Observer` instead of `Subscriber` 
+
+## [0.15.0](https://github.com/rxRust/rxRust/releases/tag/v0.15.0)
+### Bug Fixes
+- **operator**: fix #160, `FlattenOp` not support chain `BoxOp` because unnecessary bounds to `Observable::Unsub`.
+### Features
+- **operator**: add `group_by` operator.
+- **operator**: add `buffer_with_count`, `buffer_with_time` and `buffer_with_count_and_time` operator.
+
+## [0.14.0](https://github.com/rxRust/rxRust/releases/tag/v0.14.0)
+## Features
+- **operator**: add `timer` and `timer_at` operator.
+- **subject**: add `BehaviorSubject` subject.
+- **operator**: add `merge_all` operator.
+
+## [0.13.0](https://github.com/rxRust/rxRust/releases/tag/v0.13.0)
 ### Features
 - **tooling**: Make runnable on rust stable by
 1. Removing declarative macros
@@ -11,14 +55,14 @@
 ### Breaking Changes
 - **Subject** remove factory method `Subject::new` and replace with `LocalSubject::new` as well as `SharedSubject::new`
 
-## [0.12.0](https://github.com/rxRust/rxRust/compare/v0.11.0...HEAD)
+## [0.12.0](https://github.com/rxRust/rxRust/releases/tag/v0.12.0)
 ### Features
 - **operator**: add `flatten` operator.
 
 ### Breaking Changes
 - **SharedObservable**:  rename `SharedObservable::to_shared` as `SharedObservable::into_shared`
 
-## [0.11.0](https://github.com/rxRust/rxRust/compare/v0.10.0...HEAD)
+## [0.11.0](https://github.com/rxRust/rxRust/releases/tag/v0.11.0)
 ### Features
 - **operator**: add `element_at` operator.
 - **operator**: add `ignore_elements` operator.
@@ -35,7 +79,7 @@
 
 - make `interval` mod public.
 
-## [0.10.0](https://github.com/rxRust/rxRust/compare/v0.10.0...HEAD)
+## [0.10.0](https://github.com/rxRust/rxRust/releases/tag/v0.10.0)
 ### Features
 - **operator**: add `distinct` operator.
 - **operator**: add `debounce` operator.

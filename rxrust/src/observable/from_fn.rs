@@ -1,67 +1,33 @@
-use crate::prelude::*;
+use crate::{impl_local_shared_both, prelude::*};
 
 /// param `subscribe`: the function that is called when the Observable is
 /// initially subscribed to. This function is given a Subscriber, to which
 /// new values can be `next`ed, or an `error` method can be called to raise
 /// an error, or `complete` can be called to notify of a successful
 /// completion.
-pub fn create<F, O, U, Item, Err>(
-  subscribe: F,
-) -> ObservableBase<FnEmitter<F, Item, Err>>
+pub fn create<F, Item, Err>(subscribe: F) -> ObservableFn<F, Item, Err>
 where
-  F: FnOnce(Subscriber<O, U>),
-  O: Observer<Item = Item, Err = Err>,
-  U: SubscriptionLike,
+  F: FnOnce(&mut dyn Observer<Item = Item, Err = Err>),
 {
-  ObservableBase::new(FnEmitter(subscribe, TypeHint::new()))
+  ObservableFn(subscribe, TypeHint::new())
 }
 
 #[derive(Clone)]
-pub struct FnEmitter<F, Item, Err>(F, TypeHint<(Item, Err)>);
+pub struct ObservableFn<F, Item, Err>(F, TypeHint<(Item, Err)>);
 
-impl<F, Item, Err> Emitter for FnEmitter<F, Item, Err> {
+impl<F, Item, Err> Observable for ObservableFn<F, Item, Err> {
   type Item = Item;
   type Err = Err;
 }
 
-impl<'a, F, Item, Err> LocalEmitter<'a> for FnEmitter<F, Item, Err>
-where
-  F: FnOnce(
-    Subscriber<
-      Box<dyn Observer<Item = Item, Err = Err> + 'a>,
-      Box<dyn SubscriptionLike + 'a>,
-    >,
-  ),
-{
-  fn emit<O>(self, subscriber: Subscriber<O, LocalSubscription>)
-  where
-    O: Observer<Item = Self::Item, Err = Self::Err> + 'a,
-  {
-    (self.0)(Subscriber {
-      observer: Box::new(subscriber.observer),
-      subscription: Box::new(subscriber.subscription),
-    })
+impl_local_shared_both! {
+  impl<F, Item, Err> ObservableFn<F, Item, Err>;
+  type Unsub = SingleSubscription;
+  macro method($self: ident, $observer: ident, $ctx: ident) {
+    ($self.0)(&mut $observer);
+    SingleSubscription::default()
   }
-}
-
-impl<F, Item, Err> SharedEmitter for FnEmitter<F, Item, Err>
-where
-  F: FnOnce(
-    Subscriber<
-      Box<dyn Observer<Item = Item, Err = Err> + Send + Sync + 'static>,
-      SharedSubscription,
-    >,
-  ),
-{
-  fn emit<O>(self, subscriber: Subscriber<O, SharedSubscription>)
-  where
-    O: Observer<Item = Self::Item, Err = Self::Err> + Send + Sync + 'static,
-  {
-    (self.0)(Subscriber {
-      observer: Box::new(subscriber.observer),
-      subscription: subscriber.subscription,
-    })
-  }
+  where F: FnOnce(&mut dyn Observer<Item = Item, Err = Err>)
 }
 
 #[cfg(test)]
@@ -79,7 +45,7 @@ mod test {
     let c_err = err.clone();
     let c_complete = complete.clone();
 
-    observable::create(|mut subscriber| {
+    observable::create(|subscriber| {
       subscriber.next(&1);
       subscriber.next(&2);
       subscriber.next(&3);
@@ -100,7 +66,7 @@ mod test {
   }
   #[test]
   fn support_fork() {
-    let o = observable::create(|mut subscriber| {
+    let o = observable::create(|subscriber| {
       subscriber.next(&1);
       subscriber.next(&2);
       subscriber.next(&3);
@@ -129,13 +95,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_from_fn);
 
-  fn bench_from_fn(b: &mut Bencher) {
-    b.iter(proxy_call);
-  }
+  fn bench_from_fn(b: &mut Bencher) { b.iter(proxy_call); }
 }

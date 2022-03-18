@@ -1,40 +1,27 @@
-use crate::prelude::*;
+use crate::{impl_local_shared_both, prelude::*};
 
 /// Creates an observable that emits no items, just terminates with an error.
 ///
 /// # Arguments
 ///
 /// * `e` - An error to emit and terminate with
-pub fn throw<Err>(e: Err) -> ObservableBase<ThrowEmitter<Err>> {
-  ObservableBase::new(ThrowEmitter(e))
-}
+pub fn throw<Err>(e: Err) -> ThrowObservable<Err> { ThrowObservable(e) }
 
 #[derive(Clone)]
-pub struct ThrowEmitter<Err>(Err);
+pub struct ThrowObservable<Err>(Err);
 
-#[doc(hidden)]
-macro_rules! throw_emitter {
-  ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  #[inline]
-  fn emit<O>(self, mut subscriber: Subscriber<O, $subscription>)
-  where
-    O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf
-  {
-    subscriber.error(self.0);
-  }
-}
-}
-impl<Err> Emitter for ThrowEmitter<Err> {
+impl<Err> Observable for ThrowObservable<Err> {
   type Item = ();
   type Err = Err;
 }
 
-impl<'a, Err> LocalEmitter<'a> for ThrowEmitter<Err> {
-  throw_emitter!(LocalSubscription, 'a);
-}
-
-impl<Err> SharedEmitter for ThrowEmitter<Err> {
-  throw_emitter!(SharedSubscription, Send + Sync + 'static);
+impl_local_shared_both! {
+ impl<Err> ThrowObservable<Err>;
+ type Unsub = SingleSubscription;
+ macro method($self:ident, $observer: ident, $ctx: ident) {
+   $observer.error($self.0);
+   SingleSubscription::default()
+ }
 }
 
 /// Creates an observable that produces no values.
@@ -50,73 +37,48 @@ impl<Err> SharedEmitter for ThrowEmitter<Err> {
 ///
 /// // Result: no thing printed
 /// ```
-pub fn empty<Item>() -> ObservableBase<EmptyEmitter<Item>> {
-  ObservableBase::new(EmptyEmitter(TypeHint::new()))
+#[inline]
+pub fn empty<Item>() -> EmptyObservable<Item> {
+  EmptyObservable(TypeHint::new())
 }
 
 #[derive(Clone)]
-pub struct EmptyEmitter<Item>(TypeHint<Item>);
+pub struct EmptyObservable<Item>(TypeHint<Item>);
 
-#[doc(hidden)]
-macro_rules! empty_emitter {
-  ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-    #[inline]
-    fn emit<O>(self, mut subscriber: Subscriber<O, $subscription>)
-    where
-      O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf
-    {
-      subscriber.complete();
-    }
-  }
-}
-
-impl<Item> Emitter for EmptyEmitter<Item> {
+impl<Item> Observable for EmptyObservable<Item> {
   type Item = Item;
   type Err = ();
 }
 
-impl<'a, Item> LocalEmitter<'a> for EmptyEmitter<Item> {
-  empty_emitter!(LocalSubscription, 'a);
+impl_local_shared_both! {
+  impl<Item> EmptyObservable<Item>;
+  type Unsub = SingleSubscription;
+  macro method($self:ident, $observer: ident, $ctx: ident) {
+    $observer.complete();
+    SingleSubscription::default()
+  }
 }
 
-impl<Item> SharedEmitter for EmptyEmitter<Item> {
-  empty_emitter!(SharedSubscription, Send + Sync + 'static);
-}
 /// Creates an observable that never emits anything.
 ///
 /// Neither emits a value, nor completes, nor emits an error.
-pub fn never() -> ObservableBase<NeverEmitter> {
-  ObservableBase::new(NeverEmitter())
-}
+#[inline]
+pub fn never() -> NeverObservable { NeverObservable }
 
 #[derive(Clone)]
-pub struct NeverEmitter();
+pub struct NeverObservable;
 
-#[doc(hidden)]
-macro_rules! never_emitter {
-  ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  #[inline]
-  fn emit<O>(self, _subscriber: Subscriber<O, $subscription>)
-  where
-    O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf
-  {
-  }
-}
-}
-
-impl Emitter for NeverEmitter {
+impl Observable for NeverObservable {
   type Item = ();
   type Err = ();
 }
 
-impl<'a> LocalEmitter<'a> for NeverEmitter {
-  #[inline]
-  never_emitter!(LocalSubscription, 'a);
-}
-
-impl SharedEmitter for NeverEmitter {
-  #[inline]
-  never_emitter!(SharedSubscription, Send + Sync + 'static);
+impl_local_shared_both! {
+  impl NeverObservable;
+  type Unsub = SingleSubscription;
+  macro method($self:ident, $observer: ident, $ctx: ident) {
+    SingleSubscription::default()
+  }
 }
 
 #[cfg(test)]

@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::{error_proxy_impl, is_stopped_proxy_impl};
 
 #[derive(Clone)]
 pub struct ContainsOp<S, Item> {
@@ -20,18 +19,14 @@ macro_rules! observable_impl {
     ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
   fn actual_subscribe<O>(
     self,
-    subscriber: Subscriber<O, $subscription>,
+    observer: O,
   ) -> Self::Unsub
   where O: Observer<Item=bool,Err= Self::Err> + $($marker +)* $lf {
-    let subscriber = Subscriber {
-      observer: ContainsObserver{
-        observer: subscriber.observer,
-        target: self.target,
-        done:false,
-      },
-      subscription: subscriber.subscription,
-    };
-    self.source.actual_subscribe(subscriber)
+    self.source.actual_subscribe(ContainsObserver{
+      observer,
+      target: self.target,
+      done:false,
+    })
   }
 }
 }
@@ -70,19 +65,19 @@ where
   fn next(&mut self, value: Item) {
     if !self.done && self.target == value {
       self.observer.next(true);
+      self.done = true;
       self.observer.complete();
     }
   }
 
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
+
   fn complete(&mut self) {
     if !self.done {
       self.observer.next(false);
+      self.observer.complete();
     }
-    self.observer.complete();
   }
-
-  error_proxy_impl!(Err, observer);
-  is_stopped_proxy_impl!(observer);
 }
 
 #[cfg(test)]
@@ -108,13 +103,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_contains);
 
-  fn bench_contains(b: &mut bencher::Bencher) {
-    b.iter(contains_smoke);
-  }
+  fn bench_contains(b: &mut bencher::Bencher) { b.iter(contains_smoke); }
 }

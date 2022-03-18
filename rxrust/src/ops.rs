@@ -1,4 +1,6 @@
 pub mod box_it;
+pub mod buffer;
+pub mod combine_latest;
 pub mod contains;
 pub mod debounce;
 pub mod default_if_empty;
@@ -8,23 +10,30 @@ pub mod filter;
 pub mod filter_map;
 pub mod finalize;
 pub mod flatten;
+pub mod group_by;
 pub mod last;
 pub mod map;
 pub mod map_to;
 pub mod merge;
+pub mod merge_all;
 pub mod observe_on;
+pub mod pairwise;
 pub mod ref_count;
 pub mod sample;
 pub mod scan;
 pub mod skip;
 pub mod skip_last;
+pub mod skip_until;
 pub mod skip_while;
+pub mod start_with;
 pub mod subscribe_on;
 pub mod take;
 pub mod take_last;
 pub mod take_until;
 pub mod take_while;
+pub mod tap;
 pub mod throttle_time;
+pub mod with_latest_from;
 pub mod zip;
 
 use default_if_empty::DefaultIfEmptyOp;
@@ -439,7 +448,7 @@ mod test {
 
   #[test]
   fn flat_map_identity() {
-    let return_fn = |x| observable::of(x);
+    let return_fn = observable::of;
     let f = |x| observable::of(x + 1);
     let m = observable::of(0_i32);
 
@@ -449,7 +458,7 @@ mod test {
 
     // right identity
     let partial_right = |x| f(x).flat_map(return_fn);
-    let comp_right = m.clone().flat_map(partial_right);
+    let comp_right = m.flat_map(partial_right);
 
     let mut left: Option<i32> = None;
     let mut right: Option<i32> = None;

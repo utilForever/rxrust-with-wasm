@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::{complete_proxy_impl, error_proxy_impl};
 
 #[derive(Clone)]
 pub struct FilterOp<S, F> {
@@ -13,16 +12,13 @@ macro_rules! observable_impl {
   type Unsub = $source::Unsub;
   fn actual_subscribe<O>(
     self,
-    subscriber: Subscriber<O, $subscription>,
+    observer:O,
   ) -> Self::Unsub
   where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
     let filter = self.filter;
-    self.source.actual_subscribe(Subscriber {
-      observer: FilterObserver {
-        filter,
-        observer: subscriber.observer,
-      },
-      subscription: subscriber.subscription,
+    self.source.actual_subscribe(FilterObserver {
+      filter,
+      observer
     })
   }
 }
@@ -70,13 +66,10 @@ where
       self.observer.next(value)
     }
   }
-  error_proxy_impl!(Err, observer);
-  complete_proxy_impl!(observer);
 
-  #[inline]
-  fn is_stopped(&self) -> bool {
-    self.observer.is_stopped()
-  }
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
+
+  fn complete(&mut self) { self.observer.complete() }
 }
 
 #[cfg(test)]
@@ -104,13 +97,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_filter);
 
-  fn bench_filter(b: &mut bencher::Bencher) {
-    b.iter(smoke);
-  }
+  fn bench_filter(b: &mut bencher::Bencher) { b.iter(smoke); }
 }

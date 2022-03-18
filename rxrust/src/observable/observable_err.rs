@@ -5,7 +5,7 @@ pub struct ObserverErr<N, E, Item, Err> {
   next: N,
   error: E,
   is_stopped: bool,
-  marker: TypeHint<fn() -> (Item, Err)>,
+  _marker: TypeHint<fn() -> (Item, Err)>,
 }
 
 impl<Item, Err, N, E> Observer for ObserverErr<N, E, Item, Err>
@@ -17,32 +17,18 @@ where
   type Err = Err;
   #[inline]
   fn next(&mut self, err: Item) {
-    (self.next)(err);
-  }
-  fn error(&mut self, err: Err) {
-    (self.error)(err);
-    self.is_stopped = true;
-  }
-  #[inline]
-  fn complete(&mut self) {
-    self.is_stopped = true;
-  }
-  #[inline]
-  fn is_stopped(&self) -> bool {
-    self.is_stopped
-  }
-}
-
-impl<N, E, Item, Err> ObserverErr<N, E, Item, Err> {
-  #[inline(always)]
-  pub fn new(next: N, error: E) -> Self {
-    ObserverErr {
-      next,
-      error,
-      is_stopped: false,
-      marker: TypeHint::new(),
+    if !self.is_stopped {
+      (self.next)(err);
     }
   }
+  fn error(&mut self, err: Err) {
+    if !self.is_stopped {
+      (self.error)(err);
+      self.is_stopped = true;
+    }
+  }
+  #[inline]
+  fn complete(&mut self) { self.is_stopped = true; }
 }
 
 pub trait SubscribeErr<'a, N, E> {
@@ -55,7 +41,7 @@ pub trait SubscribeErr<'a, N, E> {
   /// * `error`: A handler for a terminal event resulting from an error.
   /// completion.
   fn subscribe_err(self, next: N, error: E)
-    -> SubscriptionWrapper<Self::Unsub>;
+  -> SubscriptionWrapper<Self::Unsub>;
 }
 
 impl<'a, S, N, E> SubscribeErr<'a, N, E> for S
@@ -72,12 +58,12 @@ where
     next: N,
     error: E,
   ) -> SubscriptionWrapper<Self::Unsub> {
-    let unsub = self.actual_subscribe(Subscriber::local(ObserverErr {
+    let unsub = self.actual_subscribe(ObserverErr {
       next,
       error,
       is_stopped: false,
-      marker: TypeHint::new(),
-    }));
+      _marker: TypeHint::new(),
+    });
     SubscriptionWrapper(unsub)
   }
 }
@@ -95,12 +81,12 @@ where
   where
     Self: Sized,
   {
-    let unsub = self.0.actual_subscribe(Subscriber::shared(ObserverErr {
+    let unsub = self.0.actual_subscribe(ObserverErr {
       next,
       error,
       is_stopped: false,
-      marker: TypeHint::new(),
-    }));
+      _marker: TypeHint::new(),
+    });
     SubscriptionWrapper(unsub)
   }
 }

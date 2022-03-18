@@ -1,53 +1,56 @@
 use crate::{impl_local_shared_both, prelude::*};
 
 #[derive(Clone)]
-pub struct MapOp<S, M> {
+pub struct TapOp<S, M> {
   pub(crate) source: S,
   pub(crate) func: M,
 }
 
-impl<Item, S, M> Observable for MapOp<S, M>
+impl<Item, S, M> Observable for TapOp<S, M>
 where
-  S: Observable,
-  M: FnMut(S::Item) -> Item,
+  S: Observable<Item = Item>,
+  M: FnMut(&Item),
 {
   type Item = Item;
   type Err = S::Err;
 }
 
 impl_local_shared_both! {
-  impl<Item, S, M>  MapOp<S, M>;
+  impl<S, M>  TapOp<S, M>;
   type Unsub = S::Unsub;
   macro method($self: ident, $observer: ident, $ctx: ident) {
-    let map = $self.func;
-    $self.source.actual_subscribe(MapObserver {
+    let func = $self.func;
+    $self.source.actual_subscribe(TapObserver {
       observer: $observer,
-      map,
+      func,
       _marker: TypeHint::new(),
     })
   }
   where
     S: @ctx::Observable,
     S::Item: @ctx::local_only('o) @ctx::shared_only('static),
-    M: FnMut(S::Item) -> Item
+    M: FnMut(&S::Item)
       + @ctx::local_only('o) @ctx::shared_only( Send + Sync + 'static)
 }
 
 #[derive(Clone)]
-pub struct MapObserver<O, M, Item> {
+pub struct TapObserver<O, F, Item> {
   observer: O,
-  map: M,
+  func: F,
   _marker: TypeHint<*const Item>,
 }
 
-impl<Item, Err, O, M, B> Observer for MapObserver<O, M, Item>
+impl<Item, Err, O, F> Observer for TapObserver<O, F, Item>
 where
-  O: Observer<Item = B, Err = Err>,
-  M: FnMut(Item) -> B,
+  O: Observer<Item = Item, Err = Err>,
+  F: FnMut(&Item),
 {
   type Item = Item;
   type Err = Err;
-  fn next(&mut self, value: Item) { self.observer.next((self.map)(value)) }
+  fn next(&mut self, value: Item) {
+    (self.func)(&value);
+    self.observer.next(value)
+  }
 
   fn error(&mut self, err: Self::Err) { self.observer.error(err) }
 
@@ -61,42 +64,33 @@ mod test {
   #[test]
   fn primitive_type() {
     let mut i = 0;
+    let mut v = 0;
     observable::from_iter(100..101)
-      .map(|v| v * 2)
+      .tap(|i| v = *i)
       .subscribe(|v| i += v);
-    assert_eq!(i, 200);
-  }
-
-  #[test]
-  fn reference_lifetime_should_work() {
-    let mut i = 0;
-
-    observable::of(100).map(|v| v).subscribe(|v| i += v);
     assert_eq!(i, 100);
+    assert_eq!(v, 100);
   }
 
   #[test]
   fn fork_and_shared() {
     // type to type can fork
     let m = observable::from_iter(0..100).map(|v| v);
-    m.map(|v| v).into_shared().subscribe(|_| {});
+    m.tap(|v| println!("v: {}", v))
+      .into_shared()
+      .subscribe(|_| {});
 
     // type mapped to other type can fork
     let m = observable::from_iter(vec!['a', 'b', 'c']).map(|_v| 1);
-    m.map(|v| v as f32).into_shared().subscribe(|_| {});
+    m.tap(|v| println!("v: {}", v))
+      .into_shared()
+      .subscribe(|_| {});
 
     // ref to ref can fork
     let m = observable::of(&1).map(|v| v);
-    m.map(|v| v).into_shared().subscribe(|_| {});
-  }
-
-  #[test]
-  fn map_types_mixed() {
-    let mut i = 0;
-    observable::from_iter(vec!['a', 'b', 'c'])
-      .map(|_v| 1)
-      .subscribe(|v| i += v);
-    assert_eq!(i, 3);
+    m.tap(|v| println!("v: {}", v))
+      .into_shared()
+      .subscribe(|_| {});
   }
 
   #[test]

@@ -1,5 +1,4 @@
-use crate::prelude::*;
-use crate::{complete_proxy_impl, error_proxy_impl};
+use crate::{impl_helper::*, impl_local_shared_both, prelude::*};
 
 #[derive(Clone)]
 pub struct SkipOp<S> {
@@ -7,44 +6,28 @@ pub struct SkipOp<S> {
   pub(crate) count: u32,
 }
 
-#[doc(hidden)]
-macro_rules! observable_impl {
-    ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  fn actual_subscribe<O>(
-    self,
-    subscriber: Subscriber<O, $subscription>,
-  ) -> Self::Unsub
-  where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    let subscriber = Subscriber {
-      observer: SkipObserver {
-        observer: subscriber.observer,
-        subscription: subscriber.subscription.clone(),
-        count: self.count,
-        hits: 0,
-      },
-      subscription: subscriber.subscription,
-    };
-    self.source.actual_subscribe(subscriber)
-  }
-}
+impl<S: Observable> Observable for SkipOp<S> {
+  type Item = S::Item;
+  type Err = S::Err;
 }
 
-observable_proxy_impl!(SkipOp, S);
-
-impl<'a, S> LocalObservable<'a> for SkipOp<S>
-where
-  S: LocalObservable<'a>,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(LocalSubscription, 'a);
-}
-
-impl<S> SharedObservable for SkipOp<S>
-where
-  S: SharedObservable,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(SharedSubscription, Send + Sync + 'static);
+impl_local_shared_both! {
+ impl<S> SkipOp<S>;
+ type Unsub = @ctx::Rc<ProxySubscription<S::Unsub>>;
+ macro method($self: ident, $observer: ident, $ctx: ident) {
+   let subscription =$ctx::Rc::own(ProxySubscription::default());
+   let u = $self.source.actual_subscribe(SkipObserver {
+    observer: $observer,
+    subscription: subscription.clone(),
+    count: $self.count,
+    hits: 0,
+  });
+   subscription.rc_deref_mut().proxy(u);
+   subscription
+ }
+ where
+  @ctx::local_only(S::Unsub: 'o,)
+  S: @ctx::Observable
 }
 
 pub struct SkipObserver<O, S> {
@@ -72,13 +55,9 @@ where
     }
   }
 
-  error_proxy_impl!(Err, observer);
-  complete_proxy_impl!(observer);
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
 
-  #[inline]
-  fn is_stopped(&self) -> bool {
-    self.observer.is_stopped()
-  }
+  fn complete(&mut self) { self.observer.complete() }
 }
 
 #[cfg(test)]
@@ -137,13 +116,9 @@ mod test {
   }
 
   #[test]
-  fn benchmark() {
-    do_bench();
-  }
+  fn benchmark() { do_bench(); }
 
   benchmark_group!(do_bench, bench);
 
-  fn bench(b: &mut bencher::Bencher) {
-    b.iter(base_function);
-  }
+  fn bench(b: &mut bencher::Bencher) { b.iter(base_function); }
 }

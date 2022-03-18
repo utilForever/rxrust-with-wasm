@@ -1,4 +1,3 @@
-use crate::error_proxy_impl;
 use crate::prelude::*;
 
 #[derive(Clone)]
@@ -20,17 +19,13 @@ macro_rules! observable_impl {
   ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
   fn actual_subscribe<O>(
     self,
-    subscriber: Subscriber<O, $subscription>,
+    observer:O,
   ) -> Self::Unsub
   where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    let subscriber = Subscriber {
-      observer: LastObserver {
-        observer: subscriber.observer,
-        last: self.last,
-      },
-      subscription: subscriber.subscription,
-    };
-    self.source.actual_subscribe(subscriber)
+    self.source.actual_subscribe(LastObserver {
+      observer,
+      last: self.last,
+    })
   }
 }
 }
@@ -65,20 +60,15 @@ where
 {
   type Item = Item;
   type Err = Err;
-  fn next(&mut self, value: Item) {
-    self.last = Some(value);
-  }
-  error_proxy_impl!(Err, observer);
+  fn next(&mut self, value: Item) { self.last = Some(value); }
+
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
+
   fn complete(&mut self) {
     if let Some(v) = &self.last {
       self.observer.next(v.clone())
     }
     self.observer.complete();
-  }
-
-  #[inline]
-  fn is_stopped(&self) -> bool {
-    self.observer.is_stopped()
   }
 }
 
@@ -173,7 +163,7 @@ mod test {
   fn last_or_support_fork() {
     let mut default = 0;
     let mut default2 = 0;
-    let o = observable::create(|mut subscriber| {
+    let o = observable::create(|subscriber| {
       subscriber.complete();
     })
     .last_or(100);
@@ -201,13 +191,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_last);
 
-  fn bench_last(b: &mut bencher::Bencher) {
-    b.iter(last_or_hundered_items);
-  }
+  fn bench_last(b: &mut bencher::Bencher) { b.iter(last_or_hundered_items); }
 }

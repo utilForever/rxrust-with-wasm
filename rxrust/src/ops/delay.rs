@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{impl_helper::*, impl_local_shared_both, prelude::*};
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -8,42 +8,32 @@ pub struct DelayOp<S, SD> {
   pub(crate) scheduler: SD,
 }
 
-observable_proxy_impl!(DelayOp, S, SD);
+impl<S: Observable, SD> Observable for DelayOp<S, SD> {
+  type Item = S::Item;
+  type Err = S::Err;
+}
 
-macro_rules! impl_observable {
-  ($op: ident, $subscriber: ident) => {{
-    let delay = $op.delay;
-    let source = $op.source;
-    let scheduler = $op.scheduler;
-    let subscription = $subscriber.subscription.clone();
+impl_local_shared_both! {
+  impl<S, SD> DelayOp<S, SD>;
+  type Unsub = @ctx::RcMultiSubscription;
+  macro method($self: ident, $observer: ident, $ctx: ident){
+    let subscription = $ctx::RcMultiSubscription::default();
     let c_subscription = subscription.clone();
-    let handle = scheduler.schedule(
+    let handle = $self.scheduler.schedule(
       move |_| {
-        c_subscription.add(source.actual_subscribe($subscriber));
+        c_subscription.add($self.source.actual_subscribe($observer));
       },
-      Some(delay),
+      Some($self.delay),
       (),
     );
     subscription.add(handle);
     subscription
-  }};
-}
-
-impl<S, SD, Unsub> LocalObservable<'static> for DelayOp<S, SD>
-where
-  S: LocalObservable<'static, Unsub = Unsub> + 'static,
-  Unsub: SubscriptionLike + 'static,
-  SD: LocalScheduler,
-{
-  type Unsub = LocalSubscription;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, LocalSubscription>,
-  ) -> Self::Unsub {
-    impl_observable!(self, subscriber)
   }
+  where
+    @ctx::local_only('o: 'static,)
+    S: @ctx::Observable @ctx::shared_only(+ Send) + 'static,
+    S::Unsub: 'static,
+    SD: @ctx::Scheduler
 }
 
 #[cfg(test)]

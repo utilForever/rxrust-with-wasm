@@ -1,18 +1,15 @@
-use crate::prelude::*;
+use crate::{impl_helper::*, impl_local_shared_both, prelude::*};
 
 use std::time::{Duration, Instant};
 
 /// Creates an observable which will fire at `dur` time into the future,
 /// and will repeat every `dur` interval after.
-pub fn interval<S>(
-  dur: Duration,
-  scheduler: S,
-) -> ObservableBase<IntervalEmitter<S>> {
-  ObservableBase::new(IntervalEmitter {
+pub fn interval<S>(dur: Duration, scheduler: S) -> IntervalObservable<S> {
+  IntervalObservable {
     dur,
     at: None,
     scheduler,
-  })
+  }
 }
 
 /// Creates an observable which will fire at the time specified by `at`,
@@ -21,39 +18,39 @@ pub fn interval_at<S>(
   at: Instant,
   dur: Duration,
   scheduler: S,
-) -> ObservableBase<IntervalEmitter<S>> {
-  ObservableBase::new(IntervalEmitter {
+) -> IntervalObservable<S> {
+  IntervalObservable {
     scheduler,
     dur,
     at: Some(at),
-  })
+  }
 }
 
 #[derive(Clone)]
-pub struct IntervalEmitter<S> {
+pub struct IntervalObservable<S> {
   scheduler: S,
   dur: Duration,
   at: Option<Instant>,
 }
 
-impl<S> Emitter for IntervalEmitter<S> {
+impl<S> Observable for IntervalObservable<S> {
   type Item = usize;
   type Err = ();
 }
 
-impl<S: LocalScheduler + 'static> LocalEmitter<'static> for IntervalEmitter<S> {
-  fn emit<O>(self, subscriber: Subscriber<O, LocalSubscription>)
-  where
-    O: Observer<Item = usize, Err = Self::Err> + 'static,
-  {
-    let mut observer = subscriber.observer;
-    let handle = self.scheduler.schedule_repeating(
-      move |i| observer.next(i),
-      self.dur,
-      self.at,
-    );
-    subscriber.subscription.add(handle);
+impl_local_shared_both! {
+  impl<S> IntervalObservable<S>;
+  type Unsub = SpawnHandle;
+  macro method($self:ident, $observer: ident, $ctx: ident) {
+    $self.scheduler.schedule_repeating(
+      move |i| $observer.next(i),
+      $self.dur,
+      $self.at,
+    )
   }
+  where
+    @ctx::local_only('o: 'static,)
+    S: @ctx::Scheduler + 'static
 }
 
 #[cfg(test)]

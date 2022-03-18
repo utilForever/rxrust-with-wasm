@@ -6,13 +6,10 @@ use crate::prelude::*;
 pub struct Shared<R>(pub(crate) R);
 
 pub trait SharedObservable: Observable {
-  type Unsub: SubscriptionLike + 'static;
-  fn actual_subscribe<
-    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> Self::Unsub;
+  type Unsub: SubscriptionLike + Sync + Send + 'static;
+  fn actual_subscribe<O>(self, observer: O) -> Self::Unsub
+  where
+    O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static;
 
   /// Convert to a thread-safe mode.
   #[inline]
@@ -24,13 +21,10 @@ pub trait SharedObservable: Observable {
   }
 }
 
-pub trait SharedEmitter: Emitter {
-  fn emit<O>(self, subscriber: Subscriber<O, SharedSubscription>)
-  where
-    O: Observer<Item = Self::Item, Err = Self::Err> + Send + Sync + 'static;
+impl<S: Observable> Observable for Shared<S> {
+  type Item = S::Item;
+  type Err = S::Err;
 }
-
-observable_proxy_impl!(Shared, S);
 
 impl<S> SharedObservable for Shared<S>
 where
@@ -38,12 +32,10 @@ where
 {
   type Unsub = S::Unsub;
   #[inline]
-  fn actual_subscribe<
+  fn actual_subscribe<O>(self, observer: O) -> Self::Unsub
+  where
     O: Observer<Item = Self::Item, Err = Self::Err> + Sync + Send + 'static,
-  >(
-    self,
-    subscriber: Subscriber<O, SharedSubscription>,
-  ) -> Self::Unsub {
-    self.0.actual_subscribe(subscriber)
+  {
+    self.0.actual_subscribe(observer)
   }
 }

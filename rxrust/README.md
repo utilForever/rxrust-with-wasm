@@ -1,4 +1,4 @@
-# rxRust: a zero cost Rust implementation of Reactive Extensions
+# rxRust: a Rust implementation of Reactive Extensions
 [![](https://docs.rs/rxrust/badge.svg)](https://docs.rs/rxrust/)
 [![codecov](https://codecov.io/gh/rxRust/rxRust/branch/master/graph/badge.svg)](https://codecov.io/gh/rxRust/rxRust)
 ![](https://github.com/rxRust/rxRust/workflows/test/badge.svg)
@@ -6,11 +6,14 @@
 [![](https://img.shields.io/crates/d/rxrust.svg)](https://crates.io/crates/rxrust)
 
 ## Usage
+
+`1.0.x` version requires Rust nightly before GAT stable, `0.15.0` version works with Rust stable.
+
 Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-rxrust = "0.10.0"
+rxrust = "1.0.0-alpha.2"
 ```
 
 ## Example 

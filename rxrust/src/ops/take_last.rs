@@ -1,5 +1,4 @@
-use crate::prelude::*;
-use crate::{error_proxy_impl, is_stopped_proxy_impl};
+use crate::{impl_local_shared_both, prelude::*};
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -8,44 +7,24 @@ pub struct TakeLastOp<S> {
   pub(crate) count: usize,
 }
 
-#[doc(hidden)]
-macro_rules! observable_impl {
-  ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  fn actual_subscribe<O>(
-    self,
-    subscriber: Subscriber<O, $subscription>,
-  ) -> Self::Unsub
-  where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    let subscriber = Subscriber {
-      observer: TakeLastObserver {
-        observer: subscriber.observer,
-        count: self.count,
-        queue: VecDeque::new(),
-      },
-      subscription: subscriber.subscription,
-    };
-    self.source.actual_subscribe(subscriber)
+impl<S: Observable> Observable for TakeLastOp<S> {
+  type Item = S::Item;
+  type Err = S::Err;
+}
+
+impl_local_shared_both! {
+  impl<S> TakeLastOp<S>;
+  type Unsub = S::Unsub;
+  macro method($self: ident, $observer: ident, $ctx: ident) {
+    $self.source.actual_subscribe(TakeLastObserver {
+      observer: $observer,
+      count: $self.count,
+      queue: VecDeque::new(),
+    })
   }
-}
-}
-
-observable_proxy_impl!(TakeLastOp, S);
-
-impl<'a, S> LocalObservable<'a> for TakeLastOp<S>
-where
-  S: LocalObservable<'a> + 'a,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(LocalSubscription, 'a);
-}
-
-impl<S> SharedObservable for TakeLastOp<S>
-where
-  S: SharedObservable,
-  S::Item: Send + Sync + 'static,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(SharedSubscription, Send + Sync + 'static);
+  where
+    @ctx::shared_only(S::Item: Send + Sync + 'static ,)
+    S: @ctx::Observable @ctx::local_only( + 'o)
 }
 
 pub struct TakeLastObserver<O, Item> {
@@ -66,15 +45,15 @@ where
       self.queue.pop_front();
     }
   }
-  error_proxy_impl!(Err, observer);
+
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
+
   fn complete(&mut self) {
     for value in self.queue.drain(..) {
       self.observer.next(value);
     }
     self.observer.complete();
   }
-
-  is_stopped_proxy_impl!(observer);
 }
 
 #[cfg(test)]
@@ -120,13 +99,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_take_last);
 
-  fn bench_take_last(b: &mut bencher::Bencher) {
-    b.iter(base_function);
-  }
+  fn bench_take_last(b: &mut bencher::Bencher) { b.iter(base_function); }
 }

@@ -5,10 +5,7 @@ pub trait BoxObservable<'a> {
   type Err;
   fn box_subscribe(
     self: Box<Self>,
-    subscriber: Subscriber<
-      Box<dyn Observer<Item = Self::Item, Err = Self::Err> + 'a>,
-      LocalSubscription,
-    >,
+    observer: Box<dyn Observer<Item = Self::Item, Err = Self::Err> + 'a>,
   ) -> Box<dyn SubscriptionLike>;
 }
 
@@ -17,9 +14,8 @@ pub trait SharedBoxObservable {
   type Err;
   fn box_subscribe(
     self: Box<Self>,
-    subscriber: Subscriber<
-      Box<dyn Observer<Item = Self::Item, Err = Self::Err> + Send + Sync>,
-      SharedSubscription,
+    observer: Box<
+      dyn Observer<Item = Self::Item, Err = Self::Err> + Send + Sync,
     >,
   ) -> Box<dyn SubscriptionLike + Send + Sync>;
 }
@@ -31,12 +27,12 @@ macro_rules! box_observable_impl {
   type Err = $source::Err;
   fn box_subscribe(
     self: Box<Self>,
-    subscriber: Subscriber<
-      Box<dyn Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf>,
-      $subscription,
-    >,
+    observer: Box<
+                dyn Observer<Item=Self::Item,Err= Self::Err>
+                + $($marker +)* $lf
+                >,
   ) -> Box<dyn SubscriptionLike + $($marker +)*>  {
-    Box::new(self.actual_subscribe(subscriber))
+    Box::new(self.actual_subscribe(observer))
   }
 }
 }
@@ -44,6 +40,7 @@ macro_rules! box_observable_impl {
 impl<'a, T> BoxObservable<'a> for T
 where
   T: LocalObservable<'a> + 'a,
+  T::Unsub: 'static,
 {
   box_observable_impl!(LocalSubscription, T, 'a);
 }
@@ -51,7 +48,7 @@ where
 impl<T> SharedBoxObservable for T
 where
   T: SharedObservable,
-  T::Unsub: Send + Sync,
+  T::Unsub: Send + Sync + 'static,
   T::Item: Send + Sync + 'static,
   T::Err: Send + Sync + 'static,
 {
@@ -62,9 +59,7 @@ pub struct BoxOp<T>(T);
 
 impl<T: Clone> Clone for BoxOp<T> {
   #[inline]
-  fn clone(&self) -> Self {
-    BoxOp(self.0.clone())
-  }
+  fn clone(&self) -> Self { BoxOp(self.0.clone()) }
 }
 
 pub type LocalBoxOp<'a, Item, Err> =
@@ -81,13 +76,10 @@ macro_rules! observable_impl {
     ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
   fn actual_subscribe<O>(
     self,
-    subscriber: Subscriber<O, $subscription>,
+    observer: O
   ) -> Self::Unsub
   where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    self.0.box_subscribe(Subscriber {
-      observer: Box::new(subscriber.observer),
-      subscription: subscriber.subscription,
-    })
+    self.0.box_subscribe(Box::new(observer))
   }
 }
 }
@@ -116,7 +108,7 @@ impl<'a, Item, Err> Observable for LocalCloneBoxOp<'a, Item, Err> {
   type Err = Err;
 }
 impl<'a, Item, Err> LocalObservable<'a> for LocalCloneBoxOp<'a, Item, Err> {
-  type Unsub = Box<dyn SubscriptionLike>;
+  type Unsub = Box<dyn SubscriptionLike + 'a>;
   observable_impl!(LocalSubscription, 'a);
 }
 
@@ -142,10 +134,9 @@ impl<'a, T> IntoBox<T>
   for Box<dyn BoxObservable<'a, Item = T::Item, Err = T::Err> + 'a>
 where
   T: LocalObservable<'a> + 'a,
+  T::Unsub: 'static,
 {
-  fn box_it(origin: T) -> BoxOp<Self> {
-    BoxOp(Box::new(origin))
-  }
+  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
 }
 
 impl<T> IntoBox<T>
@@ -156,9 +147,7 @@ where
   T::Err: Send + Sync + 'static,
   T::Unsub: Send + Sync,
 {
-  fn box_it(origin: T) -> BoxOp<Self> {
-    BoxOp(Box::new(origin))
-  }
+  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
 }
 
 // support box observable clone
@@ -183,19 +172,16 @@ impl<'a, Item, Err> Clone
   for Box<dyn BoxClone<'a, Item = Item, Err = Err> + 'a>
 {
   #[inline]
-  fn clone(&self) -> Self {
-    self.box_clone()
-  }
+  fn clone(&self) -> Self { self.box_clone() }
 }
 
 impl<'a, T> IntoBox<T>
   for Box<dyn BoxClone<'a, Item = T::Item, Err = T::Err> + 'a>
 where
   T: LocalObservable<'a> + Clone + 'a,
+  T::Unsub: 'static,
 {
-  fn box_it(origin: T) -> BoxOp<Self> {
-    BoxOp(Box::new(origin))
-  }
+  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
 }
 
 pub trait SharedBoxClone: SharedBoxObservable {
@@ -217,18 +203,14 @@ where
 
 impl<Item, Err> Clone for Box<dyn SharedBoxClone<Item = Item, Err = Err>> {
   #[inline]
-  fn clone(&self) -> Self {
-    self.box_clone()
-  }
+  fn clone(&self) -> Self { self.box_clone() }
 }
 
 impl<'a, T> IntoBox<T> for Box<dyn SharedBoxClone<Item = T::Item, Err = T::Err>>
 where
   T: SharedBoxObservable + Clone + 'static,
 {
-  fn box_it(origin: T) -> BoxOp<Self> {
-    BoxOp(Box::new(origin))
-  }
+  fn box_it(origin: T) -> BoxOp<Self> { BoxOp(Box::new(origin)) }
 }
 
 #[cfg(test)]
@@ -276,13 +258,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_box_clone);
 
-  fn bench_box_clone(b: &mut Bencher) {
-    b.iter(box_clone);
-  }
+  fn bench_box_clone(b: &mut Bencher) { b.iter(box_clone); }
 }

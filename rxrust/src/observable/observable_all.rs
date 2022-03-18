@@ -6,20 +6,7 @@ pub struct ObserverAll<N, E, C, Item, Err> {
   error: E,
   complete: C,
   is_stopped: bool,
-  marker: TypeHint<(*const Item, *const Err)>,
-}
-
-impl<Item, Err, N, E, C> ObserverAll<N, E, C, Item, Err> {
-  #[inline(always)]
-  pub fn new(next: N, error: E, complete: C) -> Self {
-    ObserverAll {
-      next,
-      error,
-      complete,
-      is_stopped: false,
-      marker: TypeHint::new(),
-    }
-  }
+  _marker: TypeHint<(*const Item, *const Err)>,
 }
 
 impl<Item, Err, N, E, C> Observer for ObserverAll<N, E, C, Item, Err>
@@ -32,22 +19,23 @@ where
   type Err = Err;
   #[inline(always)]
   fn next(&mut self, value: Self::Item) {
-    (self.next)(value);
+    if !self.is_stopped {
+      (self.next)(value);
+    }
   }
 
   fn error(&mut self, err: Self::Err) {
-    (self.error)(err);
-    self.is_stopped = true;
+    if !self.is_stopped {
+      (self.error)(err);
+      self.is_stopped = true;
+    }
   }
 
   fn complete(&mut self) {
-    (self.complete)();
-    self.is_stopped = true;
-  }
-
-  #[inline]
-  fn is_stopped(&self) -> bool {
-    self.is_stopped
+    if !self.is_stopped {
+      (self.complete)();
+      self.is_stopped = true;
+    }
   }
 }
 
@@ -88,14 +76,13 @@ where
   where
     Self: Sized,
   {
-    let subscriber = Subscriber::local(ObserverAll {
+    SubscriptionWrapper(self.actual_subscribe(ObserverAll {
       next,
       error,
       complete,
       is_stopped: false,
-      marker: TypeHint::new(),
-    });
-    SubscriptionWrapper(self.actual_subscribe(subscriber))
+      _marker: TypeHint::new(),
+    }))
   }
 }
 
@@ -118,14 +105,13 @@ where
   where
     Self: Sized,
   {
-    let subscriber = Subscriber::shared(ObserverAll {
+    SubscriptionWrapper(self.0.actual_subscribe(ObserverAll {
       next,
       error,
       complete,
       is_stopped: false,
-      marker: TypeHint::new(),
-    });
-    SubscriptionWrapper(self.0.actual_subscribe(subscriber))
+      _marker: TypeHint::new(),
+    }))
   }
 }
 

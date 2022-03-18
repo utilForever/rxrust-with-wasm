@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use crate::{complete_proxy_impl, error_proxy_impl, is_stopped_proxy_impl};
 
 #[derive(Clone)]
 pub struct ScanOp<Source, BinaryOp, OutputItem> {
@@ -20,17 +19,14 @@ macro_rules! observable_impl {
     ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
   fn actual_subscribe<O>(
     self,
-    subscriber: Subscriber<O, $subscription>,
+    observer: O,
   ) -> Self::Unsub
   where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    self.source_observable.actual_subscribe(Subscriber {
-      observer: ScanObserver {
-        target_observer: subscriber.observer,
-        binary_op: self.binary_op,
-        acc: self.initial_value,
-        _marker: TypeHint::new(),
-      },
-      subscription: subscriber.subscription,
+    self.source_observable.actual_subscribe(ScanObserver {
+      target_observer: observer,
+      binary_op: self.binary_op,
+      acc: self.initial_value,
+      _marker: TypeHint::new(),
     })
   }
 }
@@ -96,9 +92,9 @@ where
     self.target_observer.next(self.acc.clone())
   }
 
-  error_proxy_impl!(Err, target_observer);
-  complete_proxy_impl!(target_observer);
-  is_stopped_proxy_impl!(target_observer);
+  fn error(&mut self, err: Self::Err) { self.target_observer.error(err) }
+
+  fn complete(&mut self) { self.target_observer.complete() }
 }
 
 #[cfg(test)]
@@ -171,13 +167,9 @@ mod test {
   }
 
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_scan);
 
-  fn bench_scan(b: &mut bencher::Bencher) {
-    b.iter(scan_initial);
-  }
+  fn bench_scan(b: &mut bencher::Bencher) { b.iter(scan_initial); }
 }

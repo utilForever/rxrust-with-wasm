@@ -1,5 +1,4 @@
-use crate::prelude::*;
-use crate::{complete_proxy_impl, error_proxy_impl, is_stopped_proxy_impl};
+use crate::{impl_local_shared_both, prelude::*};
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -8,44 +7,23 @@ pub struct SkipLastOp<S> {
   pub(crate) count: usize,
 }
 
-#[doc(hidden)]
-macro_rules! observable_impl {
-  ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  fn actual_subscribe<O>(
-    self,
-    subscriber: Subscriber<O, $subscription>,
-  ) -> Self::Unsub
-  where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    let subscriber = Subscriber {
-      observer: SkipLastObserver {
-        observer: subscriber.observer,
-        count_down: self.count,
-        queue: VecDeque::new(),
-      },
-      subscription: subscriber.subscription,
-    };
-    self.source.actual_subscribe(subscriber)
+impl<S: Observable> Observable for SkipLastOp<S> {
+  type Item = S::Item;
+  type Err = S::Err;
+}
+impl_local_shared_both! {
+  impl<S> SkipLastOp<S>;
+  type Unsub = S::Unsub;
+  macro method($self: ident, $observer: ident, $ctx: ident) {
+    $self.source.actual_subscribe(SkipLastObserver {
+      observer: $observer,
+      count_down: $self.count,
+      queue: VecDeque::new(),
+    })
   }
-}
-}
-
-observable_proxy_impl!(SkipLastOp, S);
-
-impl<'a, Item: 'a, S> LocalObservable<'a> for SkipLastOp<S>
-where
-  S: LocalObservable<'a, Item = Item>,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(LocalSubscription, 'a);
-}
-
-impl<S> SharedObservable for SkipLastOp<S>
-where
-  S: SharedObservable,
-  S::Item: Send + Sync + 'static,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(SharedSubscription, Send + Sync + 'static);
+  where
+    @ctx::shared_only(S::Item: Send + Sync + 'static ,)
+    S: @ctx::Observable @ctx::local_only( + 'o)
 }
 
 pub struct SkipLastObserver<O, Item> {
@@ -69,9 +47,9 @@ where
     }
   }
 
-  error_proxy_impl!(Err, observer);
-  complete_proxy_impl!(observer);
-  is_stopped_proxy_impl!(observer);
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
+
+  fn complete(&mut self) { self.observer.complete() }
 }
 
 #[cfg(test)]
@@ -129,13 +107,9 @@ mod test {
       .subscribe(|_| {});
   }
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_skip_last);
 
-  fn bench_skip_last(b: &mut bencher::Bencher) {
-    b.iter(base_function);
-  }
+  fn bench_skip_last(b: &mut bencher::Bencher) { b.iter(base_function); }
 }

@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{impl_local_shared_both, prelude::*};
 use std::iter::{Repeat, Take};
 
 /// Creates an observable that produces values from an iterator.
@@ -28,57 +28,33 @@ use std::iter::{Repeat, Take};
 /// observable::from_iter(vec![0,1,2,3])
 ///   .subscribe(|v| {println!("{},", v)});
 /// ```
-pub fn from_iter<Iter, Item>(iter: Iter) -> ObservableBase<IterEmitter<Iter>>
+pub fn from_iter<Iter>(iter: Iter) -> ObservableIter<Iter>
 where
-  Iter: IntoIterator<Item = Item>,
+  Iter: IntoIterator,
 {
-  ObservableBase::new(IterEmitter(iter))
+  ObservableIter(iter)
 }
 
 #[derive(Clone)]
-pub struct IterEmitter<Iter>(Iter);
+pub struct ObservableIter<Iter>(Iter);
 
-#[doc(hidden)]
-macro_rules! iter_emitter {
-  ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  fn emit<O>(self, mut subscriber: Subscriber<O, $subscription>)
-  where
-    O: Observer<Item=Self::Item, Err=Self::Err> + $($marker +)* $lf
-  {
-    for v in self.0.into_iter() {
-      if !subscriber.is_finished() {
-        subscriber.next(v);
-      } else {
-        break;
-      }
-    }
-    if !subscriber.is_finished() {
-      subscriber.complete();
-    }
+impl_local_shared_both! {
+  impl<Iter> ObservableIter<Iter>;
+  type Unsub = SingleSubscription;
+  macro method($self: ident, $observer: ident, $_: ident) {
+    $self.0.into_iter().for_each(|v| $observer.next(v));
+    $observer.complete();
+    SingleSubscription::default()
   }
-}
+  where Iter: IntoIterator,
 }
 
-impl<Iter, Item> Emitter for IterEmitter<Iter>
+impl<Iter> Observable for ObservableIter<Iter>
 where
-  Iter: IntoIterator<Item = Item>,
+  Iter: IntoIterator,
 {
-  type Item = Item;
+  type Item = Iter::Item;
   type Err = ();
-}
-
-impl<'a, Iter, Item> LocalEmitter<'a> for IterEmitter<Iter>
-where
-  Iter: IntoIterator<Item = Item>,
-{
-  iter_emitter!(LocalSubscription, 'a);
-}
-
-impl<Iter, Item> SharedEmitter for IterEmitter<Iter>
-where
-  Iter: IntoIterator<Item = Item>,
-{
-  iter_emitter!(SharedSubscription, Send + Sync + 'static);
 }
 
 /// Creates an observable producing same value repeated N times.
@@ -103,10 +79,7 @@ where
 /// // 123
 /// // 123
 /// ```
-pub fn repeat<Item>(
-  v: Item,
-  n: usize,
-) -> ObservableBase<IterEmitter<Take<Repeat<Item>>>>
+pub fn repeat<Item>(v: Item, n: usize) -> ObservableIter<Take<Repeat<Item>>>
 where
   Item: Clone,
 {
@@ -170,13 +143,9 @@ mod test {
     assert!(completed);
   }
   #[test]
-  fn bench() {
-    do_bench();
-  }
+  fn bench() { do_bench(); }
 
   benchmark_group!(do_bench, bench_from_iter);
 
-  fn bench_from_iter(b: &mut Bencher) {
-    b.iter(from_range);
-  }
+  fn bench_from_iter(b: &mut Bencher) { b.iter(from_range); }
 }

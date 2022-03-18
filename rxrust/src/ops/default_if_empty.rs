@@ -1,5 +1,4 @@
-use crate::prelude::*;
-use crate::{error_proxy_impl, is_stopped_proxy_impl};
+use crate::{impl_local_shared_both, prelude::*};
 
 #[derive(Clone)]
 pub struct DefaultIfEmptyOp<S>
@@ -11,45 +10,27 @@ where
   pub(crate) default_value: S::Item,
 }
 
-#[doc(hidden)]
-macro_rules! observable_impl {
-    ($subscription:ty, $($marker:ident +)* $lf: lifetime) => {
-  fn actual_subscribe<O>(
-    self,
-    subscriber: Subscriber<O, $subscription>,
-  ) -> Self::Unsub
-  where O: Observer<Item=Self::Item,Err= Self::Err> + $($marker +)* $lf {
-    let subscriber = Subscriber {
-      observer: DefaultIfEmptyObserver {
-        observer: subscriber.observer,
-        is_empty: self.is_empty,
-        default_value: self.default_value,
-      },
-      subscription: subscriber.subscription,
-    };
-    self.source.actual_subscribe(subscriber)
+impl<S: Observable> Observable for DefaultIfEmptyOp<S> {
+  type Item = S::Item;
+  type Err = S::Err;
+}
+
+impl_local_shared_both! {
+  impl<S> DefaultIfEmptyOp<S>;
+  type Unsub = S::Unsub;
+  macro method($self: ident, $observer: ident, $ctx: ident) {
+    $self.source.actual_subscribe(DefaultIfEmptyObserver {
+      observer: $observer,
+      is_empty: $self.is_empty,
+      default_value: $self.default_value,
+    })
   }
-}
-}
+  where
+    S: @ctx::Observable,
+    S::Item: Clone
+      @ctx::local_only(+ 'o)
+      @ctx::shared_only(+ Send + Sync + 'static)
 
-observable_proxy_impl!(DefaultIfEmptyOp, S);
-
-impl<'a, S> LocalObservable<'a> for DefaultIfEmptyOp<S>
-where
-  S: LocalObservable<'a>,
-  S::Item: Clone + 'a,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(LocalSubscription, 'a);
-}
-
-impl<S> SharedObservable for DefaultIfEmptyOp<S>
-where
-  S: SharedObservable,
-  S::Item: Clone + Send + Sync + 'static,
-{
-  type Unsub = S::Unsub;
-  observable_impl!(SharedSubscription, Send + Sync + 'static);
 }
 
 pub struct DefaultIfEmptyObserver<O, Item> {
@@ -72,16 +53,14 @@ where
     }
   }
 
+  fn error(&mut self, err: Self::Err) { self.observer.error(err) }
+
   fn complete(&mut self) {
     if self.is_empty {
       self.observer.next(self.default_value.clone());
     }
     self.observer.complete()
   }
-
-  error_proxy_impl!(Err, observer);
-
-  is_stopped_proxy_impl!(observer);
 }
 
 #[cfg(test)]
@@ -132,24 +111,16 @@ mod test {
   }
 
   #[test]
-  fn bench_base() {
-    bench_b();
-  }
+  fn bench_base() { bench_b(); }
 
-  benchmark_group!(bench_b, bench_base_funciton);
+  benchmark_group!(bench_b, bench_base_function);
 
-  fn bench_base_funciton(b: &mut Bencher) {
-    b.iter(base_function);
-  }
+  fn bench_base_function(b: &mut Bencher) { b.iter(base_function); }
 
   #[test]
-  fn bench_empty() {
-    bench_e();
-  }
+  fn bench_empty() { bench_e(); }
 
-  benchmark_group!(bench_e, bench_empty_funciton);
+  benchmark_group!(bench_e, bench_empty_function);
 
-  fn bench_empty_funciton(b: &mut Bencher) {
-    b.iter(base_empty_function);
-  }
+  fn bench_empty_function(b: &mut Bencher) { b.iter(base_empty_function); }
 }
