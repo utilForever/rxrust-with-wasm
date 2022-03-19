@@ -31,7 +31,9 @@ impl_local_shared_both! {
 #[cfg(test)]
 mod tests {
   use crate::prelude::*;
+  #[cfg(not(target_arch = "wasm32"))]
   use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+  #[cfg(not(target_arch = "wasm32"))]
   use std::sync::Arc;
 
   #[test]
@@ -49,6 +51,7 @@ mod tests {
     assert!(is_completed);
   }
 
+  #[cfg(not(target_arch = "wasm32"))]
   #[test]
   fn it_shall_emit_closure_value_shared() {
     let actual = Arc::new(AtomicI32::new(0));

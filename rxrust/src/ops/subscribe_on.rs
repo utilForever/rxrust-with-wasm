@@ -32,6 +32,7 @@ impl_local_shared_both! {
     SD: @ctx::Scheduler
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod test {
   use crate::prelude::*;

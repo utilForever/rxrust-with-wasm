@@ -74,9 +74,9 @@ where
 
 #[cfg(test)]
 mod test {
-  use std::sync::{Arc, Mutex};
-
   use crate::prelude::*;
+  #[cfg(not(target_arch = "wasm32"))]
+  use std::sync::{Arc, Mutex};
 
   #[test]
   fn base_function() {
@@ -109,6 +109,7 @@ mod test {
     assert_eq!(completed_count, 1);
   }
 
+  #[cfg(not(target_arch = "wasm32"))]
   #[test]
   fn ininto_shared() {
     let last_next_arg = Arc::new(Mutex::new(None));

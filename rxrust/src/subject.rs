@@ -283,7 +283,9 @@ where
 #[cfg(test)]
 mod test {
   use super::*;
+  #[cfg(not(target_arch = "wasm32"))]
   use futures::executor::ThreadPool;
+  #[cfg(not(target_arch = "wasm32"))]
   use std::time::{Duration, Instant};
 
   #[test]
@@ -335,6 +337,7 @@ mod test {
     assert_eq!(i, 0);
   }
 
+  #[cfg(not(target_arch = "wasm32"))]
   #[test]
   fn empty_local_subject_can_convert_into_shared() {
     let pool = ThreadPool::new().unwrap();

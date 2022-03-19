@@ -1,4 +1,4 @@
-#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
+#[cfg(not(all(target_arch = "wasm32")))]
 use crate::scheduler::SharedScheduler;
 use crate::{impl_helper::*, impl_local_shared_both, prelude::*};
 #[derive(Clone)]
@@ -58,7 +58,7 @@ macro_rules! impl_observer {
   };
 }
 
-#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
+#[cfg(not(all(target_arch = "wasm32")))]
 impl<O, SD> Observer for ObserveOnObserver<MutArc<O>, SD, SharedSubscription>
 where
   O: Observer + Send + 'static,
@@ -106,18 +106,25 @@ macro_rules! impl_scheduler {
   };
 }
 
-#[cfg(not(all(target_arch = "wasm32", feature = "wasm-scheduler")))]
+#[cfg(not(all(target_arch = "wasm32")))]
 impl_scheduler!(SharedScheduler, MutArc, SharedSubscription, Send);
 impl_scheduler!(LocalScheduler, MutRc, LocalSubscription,);
 
 #[cfg(test)]
 mod test {
   use crate::prelude::*;
-  use futures::executor::{LocalPool, ThreadPool};
+  use futures::executor::LocalPool;
+  #[cfg(not(target_arch = "wasm32"))]
+  use futures::executor::ThreadPool;
+  #[cfg(not(target_arch = "wasm32"))]
   use std::collections::HashSet;
+  #[cfg(not(target_arch = "wasm32"))]
   use std::sync::atomic::{AtomicBool, Ordering};
+  #[cfg(not(target_arch = "wasm32"))]
   use std::sync::{Arc, Mutex};
+  #[cfg(not(target_arch = "wasm32"))]
   use std::thread;
+  #[cfg(not(target_arch = "wasm32"))]
   use std::time::Duration;
   use std::{cell::RefCell, rc::Rc};
 
@@ -134,6 +141,7 @@ mod test {
     assert_eq!(*v.borrow(), 1);
   }
 
+  #[cfg(not(target_arch = "wasm32"))]
   #[test]
   fn switch_thread() {
     let id = thread::spawn(move || {}).thread().id();
@@ -167,6 +175,7 @@ mod test {
     assert!(thread.len() > 1);
   }
 
+  #[cfg(not(target_arch = "wasm32"))]
   #[test]
   fn pool_unsubscribe() {
     let scheduler = ThreadPool::new().unwrap();
