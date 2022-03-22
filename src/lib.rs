@@ -17,8 +17,14 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn greet() {
-    let o = observable::from_iter(0..10);
-    o.clone().subscribe(|_| log!("Hello"));
-    o.clone().subscribe(|_| log!("rust-wasm!"));
+pub fn example_basic() {
+    let numbers = observable::from_iter(0..10);
+    // create an even stream by filter
+    let even = numbers.clone().filter(|v| v % 2 == 0);
+    // create an odd stream by filter
+    let odd = numbers.clone().filter(|v| v % 2 != 0);
+    
+    // merge odd and even stream again
+    even.merge(odd).subscribe(|v| log!("{} ", v, ));
+    // "0 2 4 6 8 1 3 5 7 9" will be printed.
 }
