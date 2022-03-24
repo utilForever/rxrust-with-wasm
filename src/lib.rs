@@ -27,8 +27,8 @@ pub fn example_basic() {
     let odd = numbers.clone().filter(|v| v % 2 != 0);
     
     // merge odd and even stream again
+    // "0 2 4 6 8 1 3 5 7 9" will be printed
     even.merge(odd).subscribe(|v| log!("{} ", v, ));
-    // "0 2 4 6 8 1 3 5 7 9" will be printed.
 
     log!("example_basic() - end");
 }
@@ -37,10 +37,26 @@ pub fn example_basic() {
 pub fn example_first() {
     log!("example_first() - start");
 
+    // create an numbers stream
     let numbers = observable::from_iter(1..=5);
     let first = numbers.clone().first();
 
+    // "1" will be printed
     first.subscribe(|v| log!("{} ", v, ));
 
     log!("example_first() - end");
+}
+
+#[wasm_bindgen]
+pub fn example_last() {
+    log!("example_last() - start");
+
+    // create an numbers stream
+    let numbers = observable::from_iter(1..=5);
+    let first = numbers.clone().last();
+
+    // "5" will be printed
+    first.subscribe(|v| log!("{} ", v, ));
+
+    log!("example_last() - end");
 }
