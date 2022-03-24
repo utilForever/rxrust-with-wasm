@@ -53,10 +53,24 @@ pub fn example_last() {
 
     // create an numbers stream
     let numbers = observable::from_iter(1..=5);
-    let first = numbers.clone().last();
+    let last = numbers.clone().last();
 
     // "5" will be printed
-    first.subscribe(|v| log!("{} ", v, ));
+    last.subscribe(|v| log!("{} ", v, ));
 
     log!("example_last() - end");
+}
+
+#[wasm_bindgen]
+pub fn example_skip() {
+    log!("example_skip() - start");
+
+    // create an numbers stream
+    let numbers = observable::from_iter(1..=10);
+    let skip = numbers.clone().skip(5);
+
+    // "6, 7, 8, 9, 10" will be printed
+    skip.subscribe(|v| log!("{} ", v, ));
+
+    log!("example_skip() - end");
 }
