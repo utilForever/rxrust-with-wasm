@@ -74,3 +74,17 @@ pub fn example_skip() {
 
     log!("example_skip() - end");
 }
+
+#[wasm_bindgen]
+pub fn example_skip_last() {
+    log!("example_skip_last() - start");
+
+    // create an numbers stream
+    let numbers = observable::from_iter(1..=10);
+    let skip_last = numbers.clone().skip_last(5);
+
+    // "1, 2, 3, 4, 5" will be printed
+    skip_last.subscribe(|v| log!("{} ", v, ));
+
+    log!("example_skip_last() - end");
+}
