@@ -32,3 +32,15 @@ pub fn example_basic() {
 
     log!("example_basic() - end");
 }
+
+#[wasm_bindgen]
+pub fn example_first() {
+    log!("example_first() - start");
+
+    let numbers = observable::from_iter(1..=5);
+    let first = numbers.clone().first();
+
+    first.subscribe(|v| log!("{} ", v, ));
+
+    log!("example_first() - end");
+}
