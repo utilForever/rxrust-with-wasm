@@ -18,6 +18,8 @@ extern "C" {
 
 #[wasm_bindgen]
 pub fn example_basic() {
+    log!("example_basic() - start");
+
     let numbers = observable::from_iter(0..10);
     // create an even stream by filter
     let even = numbers.clone().filter(|v| v % 2 == 0);
@@ -27,4 +29,6 @@ pub fn example_basic() {
     // merge odd and even stream again
     even.merge(odd).subscribe(|v| log!("{} ", v, ));
     // "0 2 4 6 8 1 3 5 7 9" will be printed.
+
+    log!("example_basic() - end");
 }
